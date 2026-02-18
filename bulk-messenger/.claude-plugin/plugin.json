@@ -1,0 +1,8 @@
+{
+  "name": "bulk-messenger-desktop",
+  "version": "1.0.0",
+  "description": "Bulk messaging plugin for Claude Desktop - compose and send personalized SMS messages using interactive playgrounds (no persistent storage, VM-compatible)",
+  "author": {
+    "name": "betojuareziii"
+  }
+}

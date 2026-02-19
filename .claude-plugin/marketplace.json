@@ -8,6 +8,7 @@
       {
         "name": "bulk-messenger",
         "source": "./bulk-messenger",
+        "version": "1.0.0", 
         "description": "Adds the ability to send template bulk messages with personlization via the Apple Messages app"
       }
     ]

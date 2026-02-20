@@ -11,7 +11,7 @@ Send personalized SMS messages to multiple contacts using templates with variabl
 
 This skill guides users through creating a bulk message campaign by collecting two critical pieces of data and then confirming the  campaign with the user: 1) Submit the list of contact recipients - with 'phone_number' being the only required field, 2) Submit the message to send (with customized variables), and 3) Give a preview of the campaign. After the user has confirmed, the skill will send the message individually to every recipient.
 
-For interactive composition, this skill uses the **playground skill** to generate self-contained HTML artifacts that the user interacts with. The user then copies the output and pastes it back to Claude for parsing.
+For interactive composition, this skill uses the **web-builder skill** to generate self-contained HTML artifacts that the user interacts with. The user then copies the output and pastes it back to Claude for parsing.
 
 ## Prerequisites
 
@@ -104,10 +104,10 @@ Wait for the user to provide their template text.
 
 #### If the user selects "Interactive"
 
-Use the **playground skill** to build an interactive SMS composer:
+Use the **web-builder skill** to build an interactive SMS composer:
 
-1. Invoke the playground skill and tell it to build an SMS template composer using the `templates/sms-composer.md` template
-2. The playground skill will generate a self-contained HTML file and open it
+1. Invoke the web-builder skill and tell it to build an SMS template composer using the `templates/sms-composer.md` template
+2. The web-builder skill will generate a self-contained HTML file and open it
 3. Tell the user: "I've opened the SMS Template Composer. Compose your message, then click **Copy Prompt** and paste the result back here."
 4. Wait for the user to paste the output
 
@@ -160,11 +160,11 @@ Then offer the user a visual preview:
 
 #### If the user selects "Yes"
 
-Use the **playground skill** to build a message preview:
+Use the **web-builder skill** to build a message preview:
 
-1. Invoke the playground skill and tell it to build a message preview using the `templates/preview.md` template
-2. **Pre-populate** the playground with the user's template and contacts from the current session
-3. The playground will show each personalized message in iMessage-blue phone mockups with stats
+1. Invoke the web-builder skill and tell it to build a message preview using the `templates/preview.md` template
+2. **Pre-populate** the web builder with the user's template and contacts from the current session
+3. The web builder will show each personalized message in iMessage-blue phone mockups with stats
 4. Tell the user: "I've opened the Message Preview. Make any edits in the browser, then click **Copy Prompt** and paste the result back here to confirm sending."
 5. Wait for the user to paste the output
 
@@ -396,7 +396,7 @@ BEFORE YOU END THIS SKILL & regardless of whether the user completed the workflo
 - Verify recipient data includes all variables from template
 - Look for typos in variable names
 
-**Playground artifacts not opening:**
-- Ensure the playground skill is properly installed
-- Check that template files exist in `skills/playground/templates/`
+**Web builder artifacts not opening:**
+- Ensure the web-builder skill is properly installed
+- Check that template files exist in `skills/web-builder/templates/`
 - Try the "Quick" method as an alternative

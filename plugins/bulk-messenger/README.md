@@ -13,12 +13,12 @@ Guides you through a full bulk messaging campaign:
 
 Template variables use `{{double_curly_braces}}` and map to any field in your contact list.
 
-### `/playground`
+### `/web-builder`
 Builds interactive HTML artifacts used internally by `send-messages`:
 - **SMS Composer** — visual template editor with phone preview
 - **Message Preview** — renders all personalized messages in iMessage-style mockups before sending
 
-You can also invoke this skill directly to create custom interactive playgrounds on any topic.
+You can also invoke this skill directly to create custom interactive web builders on any topic.
 
 ## Prerequisites
 

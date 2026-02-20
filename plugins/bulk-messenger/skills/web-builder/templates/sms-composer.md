@@ -1,6 +1,6 @@
 # SMS Composer Template
 
-Use this template when the playground is about composing SMS message templates with variable placeholders for bulk messaging campaigns.
+Use this template when the web builder is about composing SMS message templates with variable placeholders for bulk messaging campaigns.
 
 ## Styling
 
@@ -176,4 +176,4 @@ Let me know if you'd be interested in collaborating on Zenlist and seeing some p
 
 ## No persistence
 
-This playground has NO saved templates sidebar and NO persistent storage. Each session starts fresh. The user composes a template, copies the prompt output, and pastes it back to Claude.
+This web builder has NO saved templates sidebar and NO persistent storage. Each session starts fresh. The user composes a template, copies the prompt output, and pastes it back to Claude.

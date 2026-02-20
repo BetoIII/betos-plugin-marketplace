@@ -1,10 +1,10 @@
-# Playground Styles Refactoring
+# Web Builder Styles Refactoring
 
 ## Date: February 16, 2026
 
 ## Overview
 
-Extracted all common styles from individual playground HTML files into a centralized global stylesheet (`global-styles.css`).
+Extracted all common styles from individual web builder HTML files into a centralized global stylesheet (`global-styles.css`).
 
 ## Changes Made
 
@@ -15,7 +15,7 @@ Extracted all common styles from individual playground HTML files into a central
 - **Coverage**: Typography, forms, buttons, tables, phone preview, character counter, and more
 
 ### 2. Updated HTML Files
-Converted all playground files to reference the global stylesheet:
+Converted all web builder files to reference the global stylesheet:
 
 #### `sms-composer.html`
 - Removed ~250 lines of inline CSS
@@ -56,10 +56,10 @@ Updated all template markdown files to include global stylesheet usage:
 ### Code Reusability
 - DRY principle: Styles defined once, used everywhere
 - Easier maintenance: Update styles in one place
-- Consistency: All playgrounds share the same visual language
+- Consistency: All web builders share the same visual language
 
 ### Performance
-- Cached stylesheet across all playground pages
+- Cached stylesheet across all web builder pages
 - Reduced HTML file sizes by ~60-70%
 - Faster page loads on subsequent visits
 
@@ -70,7 +70,7 @@ Updated all template markdown files to include global stylesheet usage:
 - IntelliSense-friendly with comprehensive docs
 
 ### Design Consistency
-- Unified color palette across all playgrounds
+- Unified color palette across all web builders
 - Consistent spacing, typography, and interactions
 - Professional, cohesive user experience
 
@@ -123,7 +123,7 @@ None. All existing HTML files maintain backward compatibility with the same visu
 
 ## Migration Guide
 
-To use the global stylesheet in new playgrounds:
+To use the global stylesheet in new web builders:
 
 1. Add stylesheet reference to `<head>`:
    ```html
@@ -169,7 +169,7 @@ Potential additions to the design system:
 
 ## Testing
 
-All playground files have been tested and verified to render identically to their previous versions while using significantly less code.
+All web builder files have been tested and verified to render identically to their previous versions while using significantly less code.
 
 ## Notes
 

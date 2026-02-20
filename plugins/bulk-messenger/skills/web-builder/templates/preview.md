@@ -1,6 +1,6 @@
 # Message Preview Template
 
-Use this template when the playground is about previewing personalized messages — the user has already composed a message template and contact list, and wants to review, edit, and approve the final messages before sending.
+Use this template when the web builder is about previewing personalized messages — the user has already composed a message template and contact list, and wants to review, edit, and approve the final messages before sending.
 
 ## Styling
 
@@ -144,11 +144,11 @@ Use these classes from the global stylesheet:
 
 ## Data flow
 
-The playground can receive pre-populated data via URL query parameters:
+The web builder can receive pre-populated data via URL query parameters:
 - `?template=...` — URL-encoded message template
 - `?contacts=...` — URL-encoded CSV string
 
-Or the user can manually paste into the textarea. The playground skill should pre-populate when possible.
+Or the user can manually paste into the textarea. The web-builder skill should pre-populate when possible.
 
 ## No persistence
 

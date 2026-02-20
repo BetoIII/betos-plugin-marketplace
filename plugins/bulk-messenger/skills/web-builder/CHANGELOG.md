@@ -4,12 +4,12 @@
 
 ## Overview
 
-Extracted all common styles from individual web builder HTML files into a centralized global stylesheet (`global-styles.css`).
+Extracted all common styles from individual web builder HTML files into a centralized global stylesheet (`global-styles.md`).
 
 ## Changes Made
 
 ### 1. Created Global Stylesheet
-- **File**: `global-styles.css`
+- **File**: `global-styles.md`
 - **Size**: ~16KB
 - **Components**: 30+ reusable UI components
 - **Coverage**: Typography, forms, buttons, tables, phone preview, character counter, and more
@@ -127,7 +127,7 @@ To use the global stylesheet in new web builders:
 
 1. Add stylesheet reference to `<head>`:
    ```html
-   <link rel="stylesheet" href="global-styles.css">
+   <link rel="stylesheet" href="global-styles.md">
    ```
 
 2. Use semantic classes from the component library:
@@ -156,7 +156,7 @@ Potential additions to the design system:
 ## Files Modified
 
 ### Created
-- `global-styles.css`
+- `global-styles.md`
 - `CHANGELOG.md` (this file)
 
 ### Modified

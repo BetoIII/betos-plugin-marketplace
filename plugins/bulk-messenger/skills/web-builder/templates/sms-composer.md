@@ -6,12 +6,7 @@ Use this template when the web builder is about composing SMS message templates 
 
 Reference the global stylesheet and component reference in the templates folder to guide your styling:
 
-```html
-<link rel="stylesheet" href="global-styles.css">
-<link rel="stylesheet" href="component-reference.md">
-```
-
-All component styles (phone preview, buttons, forms, etc.) are defined in the global stylesheet.
+Read `global-styles.md` and `component-reference.md` from the templates folder to guide your styling. All component styles (phone preview, buttons, forms, etc.) are defined there. Inline all CSS in the output HTML file — do not link to external stylesheets.
 
 ## Layout
 

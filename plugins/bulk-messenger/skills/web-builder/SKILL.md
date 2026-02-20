@@ -18,7 +18,7 @@ When the user asks for an interactive web builder, explorer, or visual tool for 
    - `templates/sms-composer.md` — SMS template composition (message text, quick start, variables, phone preview)
    - `templates/preview.md` — Message preview (shows personalized messages with template + contacts combined, iMessage-blue phone mockups)
 3. **Load the global style sheet and component reference** from `templates/`:
-    - `templates/global-styles.css` - CSS style sheet
+    - `templates/global-styles.md` - Global styles reference
     - `templates/component-reference.md` - Common html components
 4. **Follow the template** to build the web builder. If the topic doesn't fit any template cleanly, use the one closest and adapt.
 

@@ -1,6 +1,6 @@
 # Component Reference
 
-HTML structure examples and class reference for `global-styles.css`.
+HTML structure examples and class reference for `global-styles.md`.
 Used by: `sms-composer`, `preview` templates.
 
 ---

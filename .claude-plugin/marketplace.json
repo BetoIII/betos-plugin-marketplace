@@ -1,15 +1,22 @@
 {
-    "name": "betos-marketplace-plugins",
-    "owner": {
-      "name": "Beto Juárez III",
-      "email": "betojuareziii@gmail.com"
-    },
-    "plugins": [
-      {
-        "name": "bulk-messenger",
-        "source": "./plugins/bulk-messenger",
-        "version": "1.0.0", 
-        "description": "Adds the ability to send template bulk messages with personlization via the Apple Messages app"
-      }
-    ]
-  }
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "betos-marketplace-plugins",
+  "description": "Personal plugins by Beto Juárez III for productivity and messaging workflows",
+  "owner": {
+    "name": "Beto Juárez III",
+    "email": "betojuareziii@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "bulk-messenger",
+      "description": "Adds the ability to send template bulk messages with personalization via the Apple Messages app",
+      "author": {
+        "name": "Beto Juárez III",
+        "email": "betojuareziii@gmail.com"
+      },
+      "source": "./plugins/bulk-messenger",
+      "category": "productivity",
+      "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
+    }
+  ]
+}

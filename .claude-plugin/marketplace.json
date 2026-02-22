@@ -17,6 +17,17 @@
       "source": "./plugins/bulk-messenger",
       "category": "productivity",
       "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
+    },
+    {
+      "name": "re-assistant",
+      "description": "Real estate assistant skills for SF agents — disclosure package summaries, MLS comparable analysis, and offer emails",
+      "author": {
+        "name": "Beto Juárez III",
+        "email": "betojuareziii@gmail.com"
+      },
+      "source": "./plugins/re-assistant",
+      "category": "real-estate",
+      "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
     }
   ]
 }

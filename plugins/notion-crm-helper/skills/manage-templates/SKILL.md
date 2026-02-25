@@ -8,11 +8,20 @@ user_invocable: true
 
 Create and manage reusable templates with `{{variable}}` placeholders — for email copy, follow-up messages, meeting notes, or any outreach content. Templates are stored as rows in the Notion Templates database.
 
+## Step 0: Load Configuration
+
+Read the file `~/.claude/notion-crm-helper.local.md`.
+
+- If the file does not exist or the YAML frontmatter does not contain `templates_db_id`, stop and tell the user:
+  > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` to connect your Notion databases before using this skill.
+
+- If the file exists, extract `templates_db_id` and `contacts_db_id` from the YAML frontmatter. Use these IDs directly in all Notion operations below instead of searching by database name.
+
 ## Available Actions
 
 ### List All Templates
 
-Use `notion-search` to find the Templates database, then fetch its rows. Display in a table:
+Use `notion-fetch` with `templates_db_id` from config to access the Templates database, then fetch its rows. Display in a table:
 
 ```
 Templates:
@@ -38,7 +47,7 @@ Use `notion-create-pages` to create a new row in the Templates database with:
 
 ### Edit a Template
 
-Use `notion-search` to find the template by name, then use `notion-update-page` to modify its content or name.
+Use `notion-search` scoped to the templates database (using `templates_db_id`) to find the template by name, then use `notion-update-page` to modify its content or name.
 
 ### Delete a Template
 

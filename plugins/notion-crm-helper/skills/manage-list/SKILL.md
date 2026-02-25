@@ -8,11 +8,20 @@ user_invocable: true
 
 Create and manage lists of contacts for targeted campaigns, segmentation, and event tracking. Lists are stored in the Notion Lists database.
 
+## Step 0: Load Configuration
+
+Read the file `~/.claude/notion-crm-helper.local.md`.
+
+- If the file does not exist or the YAML frontmatter does not contain `lists_db_id`, stop and tell the user:
+  > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` to connect your Notion databases before using this skill.
+
+- If the file exists, extract `lists_db_id` and `contacts_db_id` from the YAML frontmatter. Use these IDs directly in all Notion operations below instead of searching by database name.
+
 ## Available Actions
 
 ### List All Lists
 
-Use `notion-search` to find the Lists database and fetch all rows. Display:
+Use `notion-fetch` with `lists_db_id` from config to access the Lists database and fetch all rows. Display:
 
 ```
 Lists:
@@ -34,7 +43,7 @@ Use `notion-create-pages` to create a new row in the Lists database.
 
 ### View List Members
 
-Ask the user which list they want to view. Use `notion-search` to find all contacts where the `Lists` multi_select property contains the list name.
+Ask the user which list they want to view. Use `notion-fetch` with `contacts_db_id` from config to query contacts, filtering for those whose `Lists` multi_select property contains the list name.
 
 ```
 Enterprise Prospects (25 contacts):

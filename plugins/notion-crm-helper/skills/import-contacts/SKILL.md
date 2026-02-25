@@ -8,6 +8,15 @@ user_invocable: true
 
 Import contacts from a CSV file into your Notion CRM Contacts database.
 
+## Step 0: Load Configuration
+
+Read the file `~/.claude/notion-crm-helper.local.md`.
+
+- If the file does not exist or the YAML frontmatter does not contain `contacts_db_id`, stop and tell the user:
+  > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` to connect your Notion databases before using this skill.
+
+- If the file exists, extract `contacts_db_id` and `lists_db_id` from the YAML frontmatter. Use these IDs directly in all Notion operations below instead of searching by database name.
+
 ## Flow
 
 ### Step 1: Read the CSV File
@@ -51,9 +60,9 @@ Common mappings:
 - linkedin, linkedin_url → LinkedIn
 - source, lead_source → Source
 
-### Step 3: Find the Contacts Database
+### Step 3: Verify the Contacts Database
 
-Use `notion-search` to locate the Contacts database. If not found, tell the user to run `/create-crm` first.
+Use `notion-fetch` with the `contacts_db_id` from config to verify the Contacts database is reachable. If the fetch fails, tell the user to run `/notion-crm-helper:setup` to verify their configuration.
 
 ### Step 4: Validate Data
 
@@ -77,7 +86,7 @@ Report progress every 10 contacts.
 
 Ask: "Would you like to add these imported contacts to a list?"
 
-If yes, use `notion-search` to find or `notion-create-pages` to create a new entry in the Lists database, then use `notion-update-page` on each imported contact to add the list name to their `Lists` multi_select property.
+If yes, use `notion-fetch` with `lists_db_id` from config to access the Lists database, then use `notion-create-pages` or `notion-update-page` to add the contact to the appropriate list.
 
 ### Step 7: Report
 

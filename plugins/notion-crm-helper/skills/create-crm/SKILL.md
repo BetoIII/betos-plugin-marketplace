@@ -10,14 +10,25 @@ This skill creates all 5 CRM databases in your Notion workspace under a parent p
 
 ## Prerequisites
 
-- Notion must be authorized (run `/setup` if not done yet).
-- You need the URL of an existing Notion page to serve as the CRM parent.
+- Notion must be authorized.
+- `/notion-crm-helper:setup` must have been run at least once so the parent page ID is stored.
 
 ## Steps
 
-### Step 1: Get the Parent Page ID
+### Step 0: Load Configuration
 
-Ask the user for their CRM parent page URL if not already provided. Extract the 32-character ID from the URL.
+Read the file `~/.claude/notion-crm-helper.local.md`.
+
+- If the file does not exist or the YAML frontmatter does not contain `crm_parent_page_id`, stop and tell the user:
+  > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` first so the parent page ID is saved before creating databases.
+
+- If the file exists, extract `crm_parent_page_id` from the YAML frontmatter. Use this as the parent page for all database creation below.
+
+### Step 1: Confirm the Parent Page ID
+
+Show the user the parent page ID from config and confirm: "I'll create the CRM databases under Notion page `[crm_parent_page_id]`. Is that correct?"
+
+If they want to use a different page, accept a URL and extract the ID, but remind them to re-run `/notion-crm-helper:setup` to update their saved config.
 
 ### Step 2: Create Databases in Order
 
@@ -63,9 +74,13 @@ Use `notion-create-database` to create each database under the parent page. Repo
    - Notes (rich_text)
    - Contact (rich_text — contact name for reference)
 
-### Step 3: Verify and Report
+### Step 3: Save Database IDs to Config
 
-Use `notion-search` to confirm all 5 databases now exist. Report:
+After each database is created, capture its ID from the API response. Once all databases are created, update `~/.claude/notion-crm-helper.local.md` using the Write tool — preserve the existing `crm_parent_page_id` and fill in all five database IDs with the newly created values.
+
+### Step 4: Verify and Report
+
+Use `notion-fetch` with each newly saved database ID to confirm the databases are reachable. Report:
 
 ```
 CRM databases created successfully!
@@ -76,6 +91,6 @@ CRM databases created successfully!
   4. Templates     — Message templates with {{variables}}
   5. Activities    — Calls, emails, meetings, notes, tasks
 
-All databases are ready in Notion. You can manage your CRM from
-Claude or view and edit directly in Notion.
+Database IDs have been saved to ~/.claude/notion-crm-helper.local.md.
+All notion-crm-helper skills are now ready to use.
 ```

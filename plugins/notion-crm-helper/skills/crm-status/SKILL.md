@@ -8,6 +8,22 @@ user_invocable: true
 
 Run this skill to verify your Notion CRM Helper is working correctly.
 
+## Step 0: Load Configuration
+
+Read the file `~/.claude/notion-crm-helper.local.md`.
+
+- If the file does not exist or the YAML frontmatter does not contain `contacts_db_id`, stop and tell the user:
+  > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` to connect your Notion databases before using this skill.
+
+- If the file exists, extract these values from the YAML frontmatter:
+  - `contacts_db_id`
+  - `opportunities_db_id`
+  - `lists_db_id`
+  - `templates_db_id`
+  - `activities_db_id`
+
+Use these IDs in all subsequent steps instead of searching for databases by name.
+
 ## Steps
 
 ### Step 1: Test Notion Connection
@@ -18,14 +34,14 @@ Use `notion-search` with an empty or broad query to verify the Notion connection
 
 ### Step 2: Database Inventory
 
-Use `notion-search` to locate each of the 5 CRM databases by name:
-1. Contacts
-2. Opportunities
-3. Lists
-4. Templates
-5. Activities
+Use `notion-fetch` with each stored database ID to retrieve database details and approximate record count. For any ID that is empty (not configured), mark that database as "Not configured — run `/notion-crm-helper:setup`".
 
-For each database found, use `notion-fetch` to get its details and approximate record count (number of child pages/rows).
+Check:
+1. `contacts_db_id` → Contacts
+2. `opportunities_db_id` → Opportunities
+3. `lists_db_id` → Lists
+4. `templates_db_id` → Templates
+5. `activities_db_id` → Activities
 
 ### Step 3: Report
 
@@ -46,4 +62,4 @@ Databases:
 Notion MCP: Connected
 ```
 
-If any databases are missing, suggest running `/create-crm` to create them.
+If any databases are missing or returned errors, suggest running `/notion-crm-helper:setup` to update the configuration or `/notion-crm-helper:create-crm` to create them.

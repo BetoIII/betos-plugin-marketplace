@@ -15,7 +15,7 @@ Read the file `~/.claude/notion-crm-helper.local.md`.
 - If the file does not exist or the YAML frontmatter does not contain `contacts_db_id`, stop and tell the user:
   > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` to connect your Notion databases before using this skill.
 
-- If the file exists, extract `contacts_db_id` and `lists_db_id` from the YAML frontmatter. Use these IDs directly in all Notion operations below instead of searching by database name.
+- If the file exists, extract `contacts_db_id`, `accounts_db_id`, and `lists_db_id` from the YAML frontmatter. Use these IDs directly in all Notion operations below instead of searching by database name.
 
 ## Flow
 
@@ -76,9 +76,10 @@ Report validation results before importing.
 ### Step 5: Import
 
 For each contact in batches of 10:
-1. Use `notion-search` to check if a contact with the same email already exists
-2. If it exists, use `notion-update-page` to update their record
-3. If it doesn't exist, use `notion-create-pages` to create a new row in the Contacts database
+1. Use `notion-search` to check if a contact with the same email already exists.
+2. **Account upsert** (if `accounts_db_id` is configured and the contact has a Company value): use `notion-search` to check if an Account with that company name already exists in `accounts_db_id`. If not, create a new Account record using `notion-create-pages`. Track newly created accounts to avoid re-creating them for duplicate companies in the same batch.
+3. If the contact exists, use `notion-update-page` to update their record.
+4. If the contact doesn't exist, use `notion-create-pages` to create a new row in the Contacts database.
 
 Report progress every 10 contacts.
 
@@ -95,6 +96,7 @@ Import Complete!
   Created: 142
   Updated: 5 (existing contacts matched by email)
   Skipped: 3 (duplicate emails in CSV)
+  Accounts created: 18 (new company records upserted)
 
 All contacts are now in your Notion CRM.
 ```

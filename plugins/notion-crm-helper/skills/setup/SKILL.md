@@ -3,7 +3,7 @@ name: setup
 description: >-
   This skill should be used when the user says "set up notion crm", "configure
   notion crm helper", "run setup", "update my crm databases", or runs
-  /notion-crm-helper:setup. Collects the Notion database IDs for all 5 CRM
+  /notion-crm-helper:setup. Collects the Notion database IDs for all 6 CRM
   databases and saves them persistently so all notion-crm-helper skills know
   where to find the user's data.
 user_invocable: true
@@ -11,7 +11,7 @@ user_invocable: true
 
 ## Purpose
 
-Collect and save the Notion database IDs for the 5 CRM databases to `~/.claude/notion-crm-helper.local.md`. These IDs are required by all notion-crm-helper skills. Once saved, the config persists across all sessions and can only be updated by running this setup skill again.
+Collect and save the Notion database IDs for the 6 CRM databases to `~/.claude/notion-crm-helper.local.md`. These IDs are required by all notion-crm-helper skills. Once saved, the config persists across all sessions and can only be updated by running this setup skill again.
 
 ## Step 1 — Check for Existing Config
 
@@ -23,10 +23,11 @@ Read the file `~/.claude/notion-crm-helper.local.md`.
   Your current Notion CRM configuration:
 
   - Contacts DB:      [contacts_db_id]
+  - Accounts DB:      [accounts_db_id or "Not set"]
   - Opportunities DB: [opportunities_db_id]
   - Lists DB:         [lists_db_id]
   - Templates DB:     [templates_db_id]
-  - Activities DB:    [activities_db_id]
+  - Activities DB:    [activities_db_id or "Not set"] (optional)
   - Parent Page:      [crm_parent_page_id or "Not set"]
   ```
 
@@ -50,7 +51,7 @@ Use `notion-search` with a broad query (e.g., "CRM") to confirm the Notion conne
 
 Ask the user:
 
-> What is the URL of your Notion CRM parent page? This is the page where your 5 CRM databases live (or will be created).
+> What is the URL of your Notion CRM parent page? This is the page where your 6 CRM databases live (or will be created).
 
 Extract the page ID from the URL — the 32-character hex string at the end (remove hyphens if present):
 - `https://www.notion.so/My-CRM-83a0ac85cdd3464c92083b1336f7bfe7` → `83a0ac85cdd3464c92083b1336f7bfe7`
@@ -60,23 +61,27 @@ Store this as `crm_parent_page_id`.
 
 ## Step 4 — Discover Database IDs
 
-Use `notion-search` to find each of the 5 CRM databases by name. For each result, extract the database ID from the returned object.
+Use `notion-search` to find each of the 6 CRM databases by name. For each result, extract the database ID from the returned object.
 
 Search for:
 1. `"Contacts"` → store ID as `contacts_db_id`
-2. `"Opportunities"` → store ID as `opportunities_db_id`
-3. `"Lists"` → store ID as `lists_db_id`
-4. `"Templates"` → store ID as `templates_db_id`
-5. `"Activities"` → store ID as `activities_db_id`
+2. `"Accounts"` → store ID as `accounts_db_id`
+3. `"Opportunities"` → store ID as `opportunities_db_id`
+4. `"Lists"` → store ID as `lists_db_id`
+5. `"Templates"` → store ID as `templates_db_id`
+6. `"Activities"` → store ID as `activities_db_id` *(optional — if not found, skip without flagging as missing)*
 
 For each database found, confirm with the user: "Found **Contacts** database (ID: `abc123...`). Is this the right one?"
 
 If the user says no, ask them to paste the direct Notion database URL for that database and extract the ID manually.
 
-If any databases are **not found**, note them as missing and tell the user:
+If any **required** databases (Contacts, Accounts, Opportunities, Lists, Templates) are **not found**, note them as missing and tell the user:
 > The following databases were not found: [names]. You can create them by running `/notion-crm-helper:create-crm` after setup, or paste their Notion URLs now.
 
-For each missing database, ask the user if they want to:
+If **Activities** is not found, note it as optional:
+> Activities database not found — this is optional. Activity logging won't be available until it's configured.
+
+For each missing required database, ask the user if they want to:
 - Paste the database URL now (to set the ID)
 - Leave it blank for now (the corresponding skills won't work until it's set)
 
@@ -88,10 +93,11 @@ Show the collected values to the user for confirmation before writing:
 Ready to save your Notion CRM configuration:
 
 - Contacts DB:      [contacts_db_id or "Not set"]
+- Accounts DB:      [accounts_db_id or "Not set"]
 - Opportunities DB: [opportunities_db_id or "Not set"]
 - Lists DB:         [lists_db_id or "Not set"]
 - Templates DB:     [templates_db_id or "Not set"]
-- Activities DB:    [activities_db_id or "Not set"]
+- Activities DB:    [activities_db_id or "Not set"] (optional)
 - Parent Page:      [crm_parent_page_id or "Not set"]
 
 Save this configuration?
@@ -106,6 +112,7 @@ Write the following content to `~/.claude/notion-crm-helper.local.md`, replacing
 ```
 ---
 contacts_db_id: "[CONTACTS_DB_ID]"
+accounts_db_id: "[ACCOUNTS_DB_ID]"
 opportunities_db_id: "[OPPORTUNITIES_DB_ID]"
 lists_db_id: "[LISTS_DB_ID]"
 templates_db_id: "[TEMPLATES_DB_ID]"
@@ -142,5 +149,5 @@ To update your configuration in the future, run /notion-crm-helper:setup again.
 ## Error Handling
 
 - If the Write tool fails, tell the user: "Unable to save the configuration to `~/.claude/notion-crm-helper.local.md`. Please check that your `~/.claude/` directory exists and is writable."
-- Never save a partial configuration without warning the user — if `contacts_db_id` is blank, note that `/import-contacts` and `/manage-list` skills will not work until it is set.
+- Never save a partial configuration without warning the user — if `contacts_db_id` is blank, note that `/import-contacts` and `/manage-list` skills will not work until it is set. `activities_db_id` is optional and may be left blank without blocking setup.
 - If `notion-search` returns multiple databases with the same name, show the user all matches with their IDs and ask them to confirm which one to use.

@@ -17,6 +17,7 @@ Read the file `~/.claude/notion-crm-helper.local.md`.
 
 - If the file exists, extract these values from the YAML frontmatter:
   - `contacts_db_id`
+  - `accounts_db_id`
   - `opportunities_db_id`
   - `lists_db_id`
   - `templates_db_id`
@@ -38,10 +39,11 @@ Use `notion-fetch` with each stored database ID to retrieve database details and
 
 Check:
 1. `contacts_db_id` → Contacts
-2. `opportunities_db_id` → Opportunities
-3. `lists_db_id` → Lists
-4. `templates_db_id` → Templates
-5. `activities_db_id` → Activities
+2. `accounts_db_id` → Accounts
+3. `opportunities_db_id` → Opportunities
+4. `lists_db_id` → Lists
+5. `templates_db_id` → Templates
+6. `activities_db_id` → Activities *(optional — blank is expected if not configured)*
 
 ### Step 3: Report
 
@@ -54,10 +56,11 @@ Connection: Connected
 
 Databases:
   Contacts:      [N] records
+  Accounts:      [N] records  (or "Not found — run /create-crm")
   Opportunities: [N] records
   Lists:         [N] records  (or "Not found — run /create-crm")
   Templates:     [N] records  (or "Not found — run /create-crm")
-  Activities:    [N] records
+  Activities:    [N] records  (or "Not configured — optional")
 
 Notion MCP: Connected
 ```

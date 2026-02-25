@@ -28,6 +28,17 @@
       "source": "./plugins/re-assistant",
       "category": "real-estate",
       "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
+    },
+    {
+      "name": "notion-crm-helper",
+      "description": "Notion-powered CRM for managing contacts, opportunities, lists, templates, and activities — all managed conversationally through Claude.",
+      "author": {
+        "name": "Beto Juárez III",
+        "email": "betojuareziii@gmail.com"
+      },
+      "source": "./plugins/notion-crm-helper",
+      "category": "productivity",
+      "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
     }
   ]
 }

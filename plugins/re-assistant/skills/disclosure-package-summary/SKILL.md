@@ -14,6 +14,20 @@ description: >-
 
 Produce a structured, bullet-only Disclosure Package Summary from uploaded disclosure PDFs. Output is ready to paste into Google Docs and follows the 13-section format defined in `references/output-template.md`.
 
+## Step 0 — Load Agent Profile
+
+Before doing anything else, read `~/.claude/re-assistant.local.md` using the Read tool.
+
+- If the file does not exist or `agent_name` is not set in the YAML frontmatter, stop and tell the user:
+
+  > "This plugin requires setup before use. Please run `/re-assistant:setup` to save your agent profile, then try again."
+
+- If the file exists and `agent_name` is set, extract these values from the YAML frontmatter and keep them available for use in output headers or agent attribution:
+  - `agent_name`
+  - `team_name` (may be empty)
+  - `brokerage_name`
+  - `agent_email`
+
 ## Step 1 — Collect Deal Inputs
 
 Ask the user for the following. Accept whatever is available; infer the rest where possible:

@@ -1,7 +1,7 @@
 {
   "name": "re-assistant",
-  "version": "1.0.0",
-  "description": "Real estate assistant skills for SF agents — disclosure package summaries, MLS comparable analysis, and offer emails",
+  "version": "2.0.0",
+  "description": "Real estate assistant for buyer's agents — disclosure package summaries, MLS comparable analysis, and offer letters. Run /re-assistant:setup to configure your agent profile.",
   "author": {
     "name": "betojuareziii"
   }

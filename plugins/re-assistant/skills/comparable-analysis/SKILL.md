@@ -13,6 +13,21 @@ description: >-
 
 Produce a professional comparable property analysis using an attached MLS PDF as the primary data source. Output includes a value conclusion, detailed breakdown of each comparable, and a clean summary table — suitable for sharing with clients or informing offer strategy.
 
+## Step 0 — Load Agent Profile
+
+Before doing anything else, read `~/.claude/re-assistant.local.md` using the Read tool.
+
+- If the file does not exist or `agent_name` is not set in the YAML frontmatter, stop and tell the user:
+
+  > "This plugin requires setup before use. Please run `/re-assistant:setup` to save your agent profile, then try again."
+
+- If the file exists and `agent_name` is set, extract these values from the YAML frontmatter and use them throughout this skill:
+  - `agent_name`
+  - `team_name` (may be empty)
+  - `brokerage_name`
+  - `agent_email`
+  - `zenlist_username` (may be empty — if empty, omit all Zenlist links from output)
+
 ## Step 1 — Collect Subject Property Details
 
 Ask the user for the following. Accept whatever is available:
@@ -81,7 +96,8 @@ Address | Price | Cost/SqFt | Sq Ft | Bed | Bath | Parking
 ```
 
 **Zenlist Link:**
-`https://zenlist.com/listing/mlslistings:[MLSLISTINGID]?as=david.ray`
+`https://zenlist.com/listing/mlslistings:[MLSLISTINGID]?as=[ZENLIST_USERNAME]`
+*(Omit this line entirely if `zenlist_username` is not set in the agent profile)*
 
 **2-Sentence Public Description Summary (Zillow/Redfin):**
 [Concise, neutral 2-sentence summary]

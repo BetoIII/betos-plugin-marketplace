@@ -1,8 +1,8 @@
 # re-assistant
 
-Real estate assistant skills for SF agents — disclosure package summaries, MLS comparable analysis, and offer emails.
+Real estate assistant skills for SF agents — disclosure package summaries, MLS comparable analysis, and offer letters.
 
-> **Note:** This plugin is configured for David Raygorodsky / The Nolan Group / Vanguard Properties. The `offer-email` skill has the sender identity hardcoded by design.
+> **Note:** This plugin is configured for David Raygorodsky / The Nolan Group / Vanguard Properties. The `offer-letter` skill has the sender identity hardcoded by design.
 
 ## Skills
 
@@ -35,11 +35,11 @@ Analyzes MLS comparable properties to determine market value and assess whether 
 
 ---
 
-### `re-assistant:offer-email`
+### `re-assistant:offer-letter`
 
-Drafts a professional, concise offer email from David Raygorodsky (The Nolan Group, Vanguard Properties) to a listing agent.
+Drafts a professional, concise offer letter from David Raygorodsky (The Nolan Group, Vanguard Properties) to a listing agent.
 
-**Trigger phrases:** "write an offer email", "draft the offer letter to the listing agent", "compose an offer email", "I need to send an offer"
+**Trigger phrases:** "write an offer letter", "draft the offer letter to the listing agent", "compose an offer letter", "I need to send an offer"
 
 **Inputs collected interactively:**
 - Listing agent name, client name(s), property address, offer price
@@ -47,7 +47,7 @@ Drafts a professional, concise offer email from David Raygorodsky (The Nolan Gro
 - Contingencies (or "none — clean offer")
 - Buyer broker fee details
 
-**Output:** Short, mobile-readable agent-to-agent email following executive tone guidelines.
+**Output:** Short, mobile-readable agent-to-agent letter following executive tone guidelines.
 
 ## Installation
 

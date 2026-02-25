@@ -1,17 +1,17 @@
 ---
-name: offer-email
+name: offer-letter
 description: >-
-  This skill should be used when a user asks to "write an offer email", "draft
-  the offer letter to the listing agent", "compose an offer email", "write an
-  email presenting our offer", "draft the agent-to-agent offer email", or says
-  "I need to send an offer" and needs the email written. Drafts a professional,
-  concise offer email from the agent to a listing agent using the saved agent
+  This skill should be used when a user asks to "write an offer letter", "draft
+  the offer letter to the listing agent", "compose an offer letter", "write a
+  letter presenting our offer", "draft the agent-to-agent offer letter", or says
+  "I need to send an offer" and needs the letter written. Drafts a professional,
+  concise offer letter from the agent to a listing agent using the saved agent
   profile.
 ---
 
 ## Purpose
 
-Produce a short, executive-quality offer email written agent-to-agent. The email is clean, mobile-readable, and positions the offer as strong and easy to close — without hype or marketing language.
+Produce a short, executive-quality offer letter written agent-to-agent. The letter is clean, mobile-readable, and positions the offer as strong and easy to close — without hype or marketing language.
 
 ## Step 0 — Load Agent Profile
 
@@ -21,7 +21,7 @@ Before doing anything else, read `~/.claude/re-assistant.local.md` using the Rea
 
   > "This plugin requires setup before use. Please run `/re-assistant:setup` to save your agent profile, then try again."
 
-- If the file exists and `agent_name` is set, extract these values from the YAML frontmatter — these become the **Sender Context** for the email:
+- If the file exists and `agent_name` is set, extract these values from the YAML frontmatter — these become the **Sender Context** for the letter:
   - `agent_name` — used as the sender name and in the sign-off
   - `team_name` — included in the sign-off if set (e.g., "Team Name | Brokerage")
   - `brokerage_name` — used in the opening and sign-off
@@ -29,7 +29,7 @@ Before doing anything else, read `~/.claude/re-assistant.local.md` using the Rea
 
 ## Step 1 — Collect Offer Inputs
 
-Ask the user for the following. All fields are required. Do not draft the email until all are provided:
+Ask the user for the following. All fields are required. Do not draft the letter until all are provided:
 
 - **Listing agent name** — used in the greeting
 - **Client name(s)** — who the agent is representing
@@ -42,9 +42,9 @@ Ask the user for the following. All fields are required. Do not draft the email 
 
 If any field is missing, ask specifically for that field before proceeding.
 
-## Step 2 — Draft the Email
+## Step 2 — Draft the Letter
 
-Write the email following this exact structure:
+Write the letter following this exact structure:
 
 ---
 
@@ -80,14 +80,14 @@ Best,
 
 ---
 
-##Step 3 - Send the Letter
+## Step 3 — Send the Letter
 
-Ask the user if they would like to send this offer leter via email or save it:
-- Send the offer via email (save the email draft to the user's clipboard for eash copy-paste)
-- Create a docx file of the letter
-- Create a pdf file of the letter
+Ask the user if they would like to send this offer letter via email or save it:
+- Send via email (save the letter to the user's clipboard for easy copy-paste)
+- Draft a docx file
+- Draft a pdf file
 
-___
+---
 
 ## Tone and Style Rules
 
@@ -101,11 +101,11 @@ ___
 
 ## Hard Rules
 
-- No long paragraphs anywhere in the email
+- No long paragraphs anywhere in the letter
 - No emojis
 - No marketing or salesy language
 - Maximum one exclamation point total — optional
-- Total email length: very short (fits comfortably on mobile)
+- Total letter length: very short (fits comfortably on mobile)
 - Bullets must be crisp and readable on mobile
 - Do not add unnecessary pleasantries or filler sentences
 
@@ -113,4 +113,4 @@ ___
 
 - If any required input is missing, ask for it specifically before drafting — do not guess or leave placeholders
 - If the user provides contradictory contingency information (e.g., "clean offer" but also lists contingencies), ask for clarification before writing
-- If the user wants to adjust tone or structure after reviewing the draft, apply the requested changes and re-present the email
+- If the user wants to adjust tone or structure after reviewing the draft, apply the requested changes and re-present the letter

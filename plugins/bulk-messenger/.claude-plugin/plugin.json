@@ -1,5 +1,6 @@
 {
   "name": "bulk-messenger",
+  "version": "0.1.0",
   "description": "Adds the ability to send template bulk messages with personalization via the Apple Messages app",
   "author": {
     "name": "Beto Juárez III",

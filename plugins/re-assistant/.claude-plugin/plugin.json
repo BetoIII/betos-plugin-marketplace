@@ -1,6 +1,6 @@
 {
   "name": "re-assistant",
-  "version": "2.0.0",
+  "version": "0.1.0",
   "description": "Real estate assistant for buyer's agents — disclosure package summaries, MLS comparable analysis, and offer letters. Run /re-assistant:setup to configure your agent profile.",
   "author": {
     "name": "betojuareziii"

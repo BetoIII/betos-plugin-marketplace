@@ -40,6 +40,7 @@ Then create your databases:
 | `/import-contacts` | Import contacts from CSV |
 | `/manage-templates` | Create/edit message templates |
 | `/manage-list` | Manage contact lists |
+| `/crm-assistant` | Conversational CRM assistant for contacts, pipeline, and activities |
 
 ## CRM Databases
 
@@ -56,4 +57,4 @@ The plugin creates 5 databases under your parent page:
 - **Storage**: All data lives in Notion — no local database
 - **MCP Server**: Uses Notion's official hosted MCP at `https://mcp.notion.com/mcp`
 - **Skills**: Conversational workflows for common CRM operations
-- **Agent**: CRM specialist for autonomous task handling
+- **crm-assistant**: Conversational skill for autonomous CRM task handling

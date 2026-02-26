@@ -71,7 +71,7 @@ CRM database IDs are stored in `.claude/settings.json` in your project directory
 }
 ```
 
-See `examples/settings.json` in the plugin for a template you can copy into your project.
+See `skills/setup/resources/settings.json` in the plugin for a template you can copy into your project.
 
 This format is compatible with Claude Desktop (Cowork) and does not require access to local user files (`~/.claude/`).
 

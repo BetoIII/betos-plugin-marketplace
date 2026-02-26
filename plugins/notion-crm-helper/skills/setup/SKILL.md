@@ -13,7 +13,7 @@ user_invocable: true
 
 Collect and save the Notion database IDs for the 6 CRM databases to `.claude/settings.json` in the current project directory. These IDs are required by all notion-crm-helper skills. Once saved, the config persists for the project and can only be updated by running this setup skill again.
 
-The expected format is documented in `examples/settings.json` inside the notion-crm-helper plugin.
+The expected format is documented in `skills/setup/resources/settings.json` inside the notion-crm-helper plugin.
 
 ## Step 1 — Check for Existing Config
 
@@ -21,7 +21,27 @@ Read the file `.claude/settings.json` from the current project directory. Parse 
 
 - If the project directory does not have a `.claude/settings.json` file, or the file exists but has no `env` key, proceed directly to Step 2.
 
-- If the file exists and `NOTION_CRM_CONTACTS_DB_ID` is set in `env`, show the current config:
+- If the file exists and `NOTION_CRM_CONTACTS_DB_ID` is set in `env`, **immediately write the config to `~/.claude/notion-crm-helper.local.md`** (Step 1a below), then show the current config and ask the user if they want to update.
+
+### Step 1a — Write Local Config File (runs whenever settings.json is found)
+
+Using the values read from `.claude/settings.json`, write the file `~/.claude/notion-crm-helper.local.md` with the following YAML frontmatter format. Map the `env` keys to lowercase snake_case property names (drop the `NOTION_CRM_` prefix):
+
+```
+---
+contacts_db_id: "[NOTION_CRM_CONTACTS_DB_ID]"
+accounts_db_id: "[NOTION_CRM_ACCOUNTS_DB_ID]"
+opportunities_db_id: "[NOTION_CRM_OPPORTUNITIES_DB_ID]"
+lists_db_id: "[NOTION_CRM_LISTS_DB_ID]"
+templates_db_id: "[NOTION_CRM_TEMPLATES_DB_ID]"
+activities_db_id: "[NOTION_CRM_ACTIVITIES_DB_ID]"
+crm_parent_page_id: "[NOTION_CRM_PARENT_PAGE_ID]"
+---
+```
+
+Leave any value as `""` if the corresponding env key is empty or missing. Use the Write tool to save the file. Do not tell the user about this step — just do it silently.
+
+After writing `~/.claude/notion-crm-helper.local.md`, show the current config:
 
   ```
   Your current Notion CRM configuration:
@@ -112,11 +132,20 @@ If the user confirms, proceed to Step 6. If they want changes, return to Step 4 
 
 ## Step 6 — Save the Configuration
 
-Read the existing `.claude/settings.json` file if it exists (to preserve other keys such as `$schema`, `permissions`, or unrelated `env` entries). Parse it as JSON.
+### Step 6a — Write the Session Config (always)
 
-Merge the `NOTION_CRM_*` env vars into the `env` object, leaving all other keys untouched. If the file does not exist, create it with a `$schema` key and an `env` object.
+Write the confirmed values to `~/.claude/notion-crm-helper.local.md` using the YAML frontmatter format from Step 1a. Do this silently with the Write tool — do not mention it to the user.
 
-Write the result back to `.claude/settings.json`. The file should look like:
+Leave any value as `""` if the user did not provide it.
+
+### Step 6b — Offer to Save a Settings File for Future Setup
+
+After writing the local config, ask the user:
+
+> Would you like to save a `settings.json` file for quicker setup next time? This file can be placed in your project's `.claude/` folder so the plugin loads your database IDs automatically on future runs.
+
+- If the user says **no**, skip to Step 7.
+- If the user says **yes**, construct the settings.json content and display it as a code block artifact so the user can copy and save it themselves:
 
 ```json
 {
@@ -133,16 +162,18 @@ Write the result back to `.claude/settings.json`. The file should look like:
 }
 ```
 
-Leave any IDs as empty strings `""` if the user did not provide them.
+Tell the user:
 
-Use the Write tool to save the file at `.claude/settings.json` in the current project directory.
+> Save this as `.claude/settings.json` in your project folder. Next time you run setup, it will be detected automatically and your configuration will load instantly.
+
+Leave any IDs as empty strings `""` if the user did not provide them.
 
 ## Step 7 — Confirm Success
 
-After writing the file, confirm to the user:
+Confirm to the user:
 
 ```
-Notion CRM configuration saved to .claude/settings.json.
+Notion CRM configuration saved for this session.
 
 All notion-crm-helper skills will now use your saved database IDs automatically.
 

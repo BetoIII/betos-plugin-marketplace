@@ -1,0 +1,15 @@
+{
+  "description": "Restore CRM config from plugin directory (persistent host filesystem) to the session ~/.claude/ path at session start — fixes config erasure in Claude Desktop VM sessions",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks-handlers/session-start.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

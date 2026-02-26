@@ -1,0 +1,137 @@
+{
+  "version": "1.0.0",
+  "generated_by": "notion-crm-helper:setup",
+  "last_updated": "",
+  "last_validated": "",
+  "validation_config": {
+    "max_stale_days": 7,
+    "auto_heal": true
+  },
+  "important_format_notes": {
+    "page_id_format": "Always use UUID format with dashes (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)",
+    "relation_format": "Relations require array of {page_id: '<uuid>'}",
+    "select_values": "Always use exact string from select_option_aliases — never guess",
+    "database_vs_collection_ids": {
+      "use_database_id_for": ["notion-create-pages parent", "notion-fetch", "notion-search"],
+      "use_collection_id_for": ["notion-update-data-source"]
+    }
+  },
+  "property_aliases": {
+    "Contact Name": ["Name", "Full Name", "Contact"],
+    "Contact Email": ["Email", "Email Address"]
+  },
+  "select_option_aliases": {
+    "contacts": {
+      "Engagement Level": {},
+      "Buying Role": {},
+      "Source": {},
+      "Status": {}
+    },
+    "accounts": {
+      "Status": {},
+      "Industry": {}
+    },
+    "opportunities": {
+      "Stage": {},
+      "Status": {}
+    },
+    "lists": {
+      "Type": {},
+      "Status": {}
+    },
+    "activities": {
+      "Type": {}
+    }
+  },
+  "database_name_mappings": {
+    "contacts": ["Contacts", "Contact Database"],
+    "accounts": ["Accounts", "Companies"],
+    "opportunities": ["Opportunities", "Pipeline"],
+    "lists": ["Lists"],
+    "templates": ["Templates"],
+    "activities": ["Activities"]
+  },
+  "databases": {
+    "contacts": {
+      "id": "",
+      "collection_id": "",
+      "name": "",
+      "properties": {
+        "Contact Name": { "id": "title", "type": "title", "required": true },
+        "Contact Email": { "id": "", "type": "email" },
+        "Contact Phone": { "id": "", "type": "phone_number" },
+        "Company": { "id": "", "type": "relation" },
+        "Title": { "id": "", "type": "rich_text" },
+        "Engagement Level": { "id": "", "type": "select", "options": [] },
+        "Buying Role": { "id": "", "type": "select", "options": [] },
+        "Source": { "id": "", "type": "select", "options": [] },
+        "Lists": { "id": "", "type": "multi_select", "options": [] },
+        "LinkedIn": { "id": "", "type": "url" },
+        "Notes": { "id": "", "type": "rich_text" }
+      }
+    },
+    "accounts": {
+      "id": "",
+      "collection_id": "",
+      "name": "",
+      "properties": {
+        "Account Name": { "id": "title", "type": "title", "required": true },
+        "Status": { "id": "", "type": "select", "options": [] },
+        "Industry": { "id": "", "type": "select", "options": [] },
+        "Website": { "id": "", "type": "url" },
+        "Notes": { "id": "", "type": "rich_text" }
+      }
+    },
+    "opportunities": {
+      "id": "",
+      "collection_id": "",
+      "name": "",
+      "properties": {
+        "Deal Name": { "id": "title", "type": "title", "required": true },
+        "Stage": { "id": "", "type": "select", "options": [] },
+        "Value": { "id": "", "type": "number" },
+        "Company": { "id": "", "type": "relation" },
+        "Close Date": { "id": "", "type": "date" },
+        "Notes": { "id": "", "type": "rich_text" }
+      }
+    },
+    "lists": {
+      "id": "",
+      "collection_id": "",
+      "name": "",
+      "properties": {
+        "List Name": { "id": "title", "type": "title", "required": true },
+        "Type": { "id": "", "type": "select", "options": [] },
+        "Status": { "id": "", "type": "select", "options": [] },
+        "Description": { "id": "", "type": "rich_text" }
+      }
+    },
+    "templates": {
+      "id": "",
+      "collection_id": "",
+      "name": "",
+      "properties": {
+        "Template Name": { "id": "title", "type": "title", "required": true },
+        "Type": { "id": "", "type": "select", "options": [] },
+        "Subject": { "id": "", "type": "rich_text" },
+        "Body": { "id": "", "type": "rich_text" }
+      }
+    },
+    "activities": {
+      "id": "",
+      "collection_id": "",
+      "name": "",
+      "properties": {
+        "Activity Name": { "id": "title", "type": "title", "required": true },
+        "Type": { "id": "", "type": "select", "options": [] },
+        "Date": { "id": "", "type": "date" },
+        "Notes": { "id": "", "type": "rich_text" }
+      }
+    }
+  },
+  "relationships": {
+    "contact_to_account": "Company on Contacts is a relation to Accounts — use page_id format",
+    "contact_to_opportunity": "Contacts linked via Buying Committee/Champion properties",
+    "opportunity_to_account": "Company on Opportunities is a relation to Accounts — use page_id format"
+  }
+}

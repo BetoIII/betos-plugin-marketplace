@@ -23,7 +23,7 @@ Read the file `.claude/settings.json` from the current project directory. Parse 
 
 - If the file exists and `NOTION_CRM_CONTACTS_DB_ID` is set in `env`, **immediately write the config to `~/.claude/notion-crm-helper.local.md`** (Step 1a below), then show the current config and ask the user if they want to update.
 
-### Step 1a — Write Local Config File (runs whenever settings.json is found)
+### Step 1a — Write Local Config File and Check Schema (runs whenever settings.json is found)
 
 Using the values read from `.claude/settings.json`, write the file `~/.claude/notion-crm-helper.local.md` with the following YAML frontmatter format. Map the `env` keys to lowercase snake_case property names (drop the `NOTION_CRM_` prefix):
 
@@ -41,6 +41,10 @@ crm_parent_page_id: "[NOTION_CRM_PARENT_PAGE_ID]"
 
 Leave any value as `""` if the corresponding env key is empty or missing. Use the Write tool to save the file. Do not tell the user about this step — just do it silently.
 
+Also silently check for `.claude/crm-schema.json`:
+- If the file exists, read it and extract `last_validated`. Compute how many days ago that timestamp was. Note this for display (do not warn yet — just prepare to show it in the config summary below).
+- If the file does not exist, note "Schema not generated" for display.
+
 After writing `~/.claude/notion-crm-helper.local.md`, show the current config:
 
   ```
@@ -53,6 +57,8 @@ After writing `~/.claude/notion-crm-helper.local.md`, show the current config:
   - Templates DB:     [NOTION_CRM_TEMPLATES_DB_ID]
   - Activities DB:    [NOTION_CRM_ACTIVITIES_DB_ID or "Not set"] (optional)
   - Parent Page:      [NOTION_CRM_PARENT_PAGE_ID or "Not set"]
+
+  Schema: [N days old / "Schema not generated — re-run setup to enable accurate property matching"]
   ```
 
   Then ask: "Would you like to update your configuration, or keep the current one?"
@@ -109,6 +115,26 @@ If **Activities** is not found, note it as optional:
 For each missing required database, ask the user if they want to:
 - Paste the database URL now (to set the ID)
 - Leave it blank for now (the corresponding skills won't work until it's set)
+
+## Step 4.5 — Introspect Database Schemas
+
+For each database ID confirmed in Step 4, call `notion-fetch` with that database ID to retrieve the full database object. Do this silently — do not report progress to the user. For each database, extract:
+
+1. **collection_id**: Look for a `<data-source url="collection://...">` tag in the `notion-fetch` response. Extract the full `collection://...` URL and store it as `collection_id` for that database.
+
+2. **Properties**: For each property in the database's property schema, record:
+   - Display name (the key)
+   - Internal ID (the short opaque Notion-internal ID, e.g. `eDptYQ` — NOT a UUID; use verbatim)
+   - Type (`title`, `rich_text`, `select`, `multi_select`, `number`, `date`, `email`, `phone_number`, `url`, `relation`, `checkbox`, etc.)
+   - For `select` and `multi_select` types: the exact option strings with all emoji preserved (e.g., `"🔥 Hot"`, `"❄️ Cold"`)
+
+3. **select_option_aliases**: For each `select` or `multi_select` property, build an alias map. For each option string:
+   - Strip all leading characters that are emoji (Unicode characters in ranges U+1F300 and above, or Unicode Misc Symbols U+2600–U+26FF) and trim any leading/trailing whitespace from the result
+   - If the stripped alias differs from the original option string, add `alias → original_value` to the alias map for that property
+   - Example: `"🔥 Hot"` → stripped alias `"Hot"` → add `"Hot": "🔥 Hot"` to the map
+   - Example: `"Champion"` → stripped alias `"Champion"` → same as original, skip (no alias needed)
+
+Hold all introspected data in memory — it will be written in Step 6c. If `notion-fetch` fails for a database, skip it without blocking the user (the schema for that database will be empty).
 
 ## Step 5 — Confirm Before Saving
 
@@ -168,6 +194,82 @@ Tell the user:
 
 Leave any IDs as empty strings `""` if the user did not provide them.
 
+### Step 6c — Write Schema File (always, silently)
+
+Using the data collected in Step 4.5, construct a `crm-schema.json` object and write it to `.claude/crm-schema.json` using the Write tool. Do not mention this step to the user — do it silently. If the Write tool fails, warn the user: "Note: Unable to write the schema file to `.claude/crm-schema.json`. Property matching may be less accurate." — but do NOT block setup completion.
+
+The schema object structure:
+
+```json
+{
+  "version": "1.0.0",
+  "generated_by": "notion-crm-helper:setup",
+  "last_updated": "<current ISO 8601 timestamp>",
+  "last_validated": "<current ISO 8601 timestamp>",
+  "validation_config": { "max_stale_days": 7, "auto_heal": true },
+  "important_format_notes": {
+    "page_id_format": "Always use UUID format with dashes (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)",
+    "relation_format": "Relations require array of {page_id: '<uuid>'}",
+    "select_values": "Always use exact string from select_option_aliases — never guess",
+    "database_vs_collection_ids": {
+      "use_database_id_for": ["notion-create-pages parent", "notion-fetch", "notion-search"],
+      "use_collection_id_for": ["notion-update-data-source"]
+    }
+  },
+  "property_aliases": {
+    "Contact Name": ["Name", "Full Name", "Contact"],
+    "Contact Email": ["Email", "Email Address"]
+  },
+  "select_option_aliases": {
+    "contacts": {
+      "<PropertyName>": { "<alias>": "<actual_value_with_emoji>", ... },
+      ...
+    },
+    "accounts": { ... },
+    "opportunities": { ... },
+    "lists": { ... },
+    "templates": { ... },
+    "activities": { ... }
+  },
+  "database_name_mappings": {
+    "contacts": ["Contacts", "Contact Database"],
+    "accounts": ["Accounts", "Companies"],
+    "opportunities": ["Opportunities", "Pipeline"],
+    "lists": ["Lists"],
+    "templates": ["Templates"],
+    "activities": ["Activities"]
+  },
+  "databases": {
+    "contacts": {
+      "id": "<uuid from config>",
+      "collection_id": "<collection:// url extracted from notion-fetch response>",
+      "name": "<actual Notion database name>",
+      "properties": {
+        "<PropertyDisplayName>": {
+          "id": "<short Notion-internal property ID — NOT a UUID>",
+          "type": "<property type>",
+          "options": ["<exact option string with emoji>", ...],
+          "required": true
+        },
+        ...
+      }
+    },
+    "accounts": { ... },
+    "opportunities": { ... },
+    "lists": { ... },
+    "templates": { ... },
+    "activities": { ... }
+  },
+  "relationships": {
+    "contact_to_account": "Company on Contacts is a relation to Accounts — use page_id format",
+    "contact_to_opportunity": "Contacts linked via Buying Committee/Champion properties",
+    "opportunity_to_account": "Company on Opportunities is a relation to Accounts — use page_id format"
+  }
+}
+```
+
+Include `"options"` only for `select` and `multi_select` property types. Omit it for all other types. Include `"required": true` only for the title property of each database.
+
 ## Step 7 — Confirm Success
 
 Confirm to the user:
@@ -176,6 +278,7 @@ Confirm to the user:
 Notion CRM configuration saved for this session.
 
 All notion-crm-helper skills will now use your saved database IDs automatically.
+Schema file saved: `.claude/crm-schema.json`
 
 Next steps:
 - /notion-crm-helper:crm-status — verify all databases are reachable

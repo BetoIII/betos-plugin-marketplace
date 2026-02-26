@@ -3,12 +3,15 @@ name: crm-assistant
 description: >-
   This skill should be used when the user asks about CRM tasks such as managing
   contacts, tracking deals or opportunities, logging activities, searching the
-  sales pipeline, sending follow-ups, segmenting lists, previewing templates, or
-  any request involving contacts or the sales process. Trigger examples:
+  sales pipeline, sending follow-ups, segmenting lists, previewing templates,
+  importing or bulk-adding contacts, or any request involving contacts or the
+  sales process. Trigger examples:
   "Find all hot contacts who haven't been followed up in 30 days",
   "Create an opportunity for Acme Corp worth $50k in the Proposal stage",
   "Show me the full sales pipeline summary",
-  "Log a meeting note for my call with Sarah Jones at Beta Inc".
+  "Log a meeting note for my call with Sarah Jones at Beta Inc",
+  "Import these contacts from my spreadsheet",
+  "Add all these people to my CRM".
 user_invocable: true
 ---
 
@@ -86,7 +89,7 @@ Accounts represent companies or organizations. Each Contact and Opportunity shou
   3. Create the contact using `notion-create-pages` on `contacts_db_id`, referencing the account name in the Company field. Apply Step 0c alias resolution to all select/multi_select values before the API call.
 - **Search contacts**: Use `notion-search` with the contact name, email, or company, or query `contacts_db_id` via `notion-fetch`.
 - **Update a contact**: Find the contact page ID, then use `notion-update-page` to change fields (engagement level, buying role, phone, notes, etc.). Apply Step 0c alias resolution to all select/multi_select values before the API call.
-- **Import contacts**: Tell the user to run `/notion-crm-helper:import-contacts` for CSV bulk imports.
+- **Bulk import contacts**: Accept any structured data the user provides — CSV text, JSON, a pasted table, or a list — and create each contact using the single-contact creation flow above. Parse the data, confirm the field mappings with the user before importing, then iterate through each record. Run duplicate checks per record and skip (or report) any that already exist.
 
 ### Sales Pipeline / Opportunities
 
@@ -112,14 +115,13 @@ Accounts represent companies or organizations. Each Contact and Opportunity shou
 
 ### Templates
 
-- Delegate template operations to the `/notion-crm-helper:manage-templates` skill, or handle directly:
-  - **Preview a template**: Fetch the template by name, fetch the target contact record, and substitute `{{variable}}` placeholders with actual contact field values.
+- **Preview a template**: Fetch the template by name, fetch the target contact record, and substitute `{{variable}}` placeholders with actual contact field values.
+- **Create/edit a template**: Use `notion-create-pages` or `notion-update-page` on `templates_db_id`.
 
 ### Lists & Segmentation
 
-- Delegate list operations to the `/notion-crm-helper:manage-list` skill, or handle directly:
-  - **Create a list**: Use `notion-create-pages` on `lists_db_id`.
-  - **Add a contact to a list**: Find the list page and update the contact's List relation property.
+- **Create a list**: Use `notion-create-pages` on `lists_db_id`.
+- **Add a contact to a list**: Find the list page and update the contact's List relation property.
 
 ### Natural Language CRM Search
 
@@ -143,8 +145,4 @@ Before constructing any filter that includes a select or multi_select value, app
 ## Related Skills
 
 - `/notion-crm-helper:setup` — First-time configuration
-- `/notion-crm-helper:create-crm` — Create CRM databases in Notion
 - `/notion-crm-helper:crm-status` — System health check
-- `/notion-crm-helper:import-contacts` — CSV contact import
-- `/notion-crm-helper:manage-templates` — Template CRUD
-- `/notion-crm-helper:manage-list` — List management

@@ -107,7 +107,7 @@ For each database found, confirm with the user: "Found **Contacts** database (ID
 If the user says no, ask them to paste the direct Notion database URL for that database and extract the ID manually.
 
 If any **required** databases (Contacts, Accounts, Opportunities, Lists, Templates) are **not found**, note them as missing and tell the user:
-> The following databases were not found: [names]. You can create them by running `/notion-crm-helper:create-crm` after setup, or paste their Notion URLs now.
+> The following databases were not found: [names]. Please paste their Notion URLs now, or create them manually in Notion and re-run setup.
 
 If **Activities** is not found, note it as optional:
 > Activities database not found — this is optional. Activity logging won't be available until it's configured.
@@ -282,8 +282,7 @@ Schema file saved: `.claude/crm-schema.json`
 
 Next steps:
 - /notion-crm-helper:crm-status — verify all databases are reachable
-- /notion-crm-helper:create-crm — create any missing databases
-- /notion-crm-helper:import-contacts — import contacts from CSV
+- /notion-crm-helper:crm-assistant — start managing contacts, pipeline, and activities
 
 To update your configuration in the future, run /notion-crm-helper:setup again.
 ```
@@ -291,5 +290,5 @@ To update your configuration in the future, run /notion-crm-helper:setup again.
 ## Error Handling
 
 - If the Write tool fails, tell the user: "Unable to save the configuration to `.claude/settings.json`. Please check that your project's `.claude/` directory exists and is writable. Make sure you have a project folder open in Claude Code."
-- Never save a partial configuration without warning the user — if `NOTION_CRM_CONTACTS_DB_ID` is blank, note that `/import-contacts` and `/manage-list` skills will not work until it is set. `NOTION_CRM_ACTIVITIES_DB_ID` is optional and may be left blank without blocking setup.
+- Never save a partial configuration without warning the user — if `NOTION_CRM_CONTACTS_DB_ID` is blank, note that contact and list operations in `/notion-crm-helper:crm-assistant` will not work until it is set. `NOTION_CRM_ACTIVITIES_DB_ID` is optional and may be left blank without blocking setup.
 - If `notion-search` returns multiple databases with the same name, show the user all matches with their IDs and ask them to confirm which one to use.

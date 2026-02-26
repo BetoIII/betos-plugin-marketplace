@@ -62,10 +62,10 @@ Connection: Connected
 
 Databases:
   Contacts:      [N] records
-  Accounts:      [N] records  (or "Not found — run /create-crm")
+  Accounts:      [N] records  (or "Not found — check your Notion setup")
   Opportunities: [N] records
-  Lists:         [N] records  (or "Not found — run /create-crm")
-  Templates:     [N] records  (or "Not found — run /create-crm")
+  Lists:         [N] records  (or "Not found — check your Notion setup")
+  Templates:     [N] records  (or "Not found — check your Notion setup")
   Activities:    [N] records  (or "Not configured — optional")
 
 Schema:
@@ -77,6 +77,6 @@ Schema:
 Notion MCP: Connected
 ```
 
-If any databases are missing or returned errors, suggest running `/notion-crm-helper:setup` to update the configuration or `/notion-crm-helper:create-crm` to create them.
+If any databases are missing or returned errors, suggest running `/notion-crm-helper:setup` to update the configuration.
 
 If the schema is not found or is stale (> 7 days), suggest running `/notion-crm-helper:setup` to generate or refresh it.

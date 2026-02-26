@@ -1,6 +1,6 @@
 # Notion CRM Helper
 
-A Claude Code plugin that provides full CRM functionality powered by Notion. Manage contacts, opportunities, lists, templates, and activities — all conversationally through Claude.
+A Claude Code plugin that provides CRM functionality powered by Notion. Manage contacts, opportunities, and activities — all conversationally through Claude.
 
 Works out of the box with the Notion MCP connector. No extra tools or setup required beyond authorizing Notion.
 
@@ -25,21 +25,12 @@ In Claude Code, run:
 /setup
 ```
 
-Then create your databases:
-```
-/create-crm
-```
-
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `/setup` | First-time configuration |
-| `/create-crm` | Create all CRM databases in Notion |
 | `/crm-status` | Check system health and database counts |
-| `/import-contacts` | Import contacts from CSV |
-| `/manage-templates` | Create/edit message templates |
-| `/manage-list` | Manage contact lists |
 | `/crm-assistant` | Conversational CRM assistant for contacts, pipeline, and activities |
 
 ## CRM Databases

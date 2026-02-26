@@ -1,7 +1,7 @@
 ---
 name: manage-list
 description: Create and manage contact lists for organizing contacts into groups for campaigns, segments, and events.
-user_invocable: true
+user_invocable: false
 ---
 
 # Manage Contact Lists

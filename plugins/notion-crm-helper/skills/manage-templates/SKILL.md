@@ -1,7 +1,7 @@
 ---
 name: manage-templates
 description: Create, view, edit, and delete message templates with {{variable}} placeholders for outreach and follow-up copy.
-user_invocable: true
+user_invocable: false
 ---
 
 # Manage Message Templates

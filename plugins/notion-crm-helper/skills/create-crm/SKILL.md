@@ -85,10 +85,7 @@ Use `notion-create-database` to create each database under the parent page. Repo
 
 ### Step 3: Save Database IDs to Config
 
-After each database is created, capture its ID from the API response. Once all databases are created:
-
-1. Update `~/.claude/notion-crm-helper.local.md` using the Write tool — preserve the existing `crm_parent_page_id` and fill in all six database IDs with the newly created values.
-2. Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. If a non-empty path is returned, write the same content to `[PLUGIN_ROOT]/notion-crm-helper.config.md` to create the persistent copy that survives Claude Desktop VM restarts.
+After each database is created, capture its ID from the API response. Once all databases are created, update `~/.claude/notion-crm-helper.local.md` using the Write tool — preserve the existing `crm_parent_page_id` and fill in all six database IDs with the newly created values.
 
 ### Step 4: Verify and Report
 
@@ -104,6 +101,6 @@ CRM databases created successfully!
   5. Templates     — Message templates with {{variables}}
   6. Activities    — Calls, emails, meetings, notes, tasks
 
-Database IDs have been saved and will persist across Claude Desktop sessions.
+Database IDs have been saved to ~/.claude/notion-crm-helper.local.md.
 All notion-crm-helper skills are now ready to use.
 ```

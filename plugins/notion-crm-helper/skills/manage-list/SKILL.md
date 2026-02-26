@@ -29,6 +29,13 @@ Read the file `.claude/settings.json` from the current project directory.
 
 Use these IDs directly in all Notion operations below instead of searching by database name.
 
+Also silently read `.claude/crm-schema.json`. If it exists, parse it and load:
+- `schema.databases.lists.properties` — to resolve the actual display names of the Lists database properties (e.g., the "Type" and "Status" select property names and their valid options)
+- `schema.databases.contacts.properties` — to resolve the actual name of the contact `Lists` multi_select property
+- `schema.select_option_aliases.lists` — to resolve Type and Status values
+
+Use schema property names and option values when making API calls. If no schema is loaded, use the default property names below.
+
 ## Available Actions
 
 ### List All Lists
@@ -49,13 +56,15 @@ Lists:
 Ask the user for:
 1. **List name** — e.g., "Enterprise Prospects"
 2. **Description** (optional)
-3. **Type** — Campaign, Segment, Event, or Custom
+3. **Type** — if schema is loaded, present the actual Type options from `schema.databases.lists.properties.Type.options` (e.g., "Campaign", "Segment", "Event", "Custom"). If no schema, use these defaults: Campaign, Segment, Event, Custom.
+
+Apply alias resolution from `schema.select_option_aliases.lists` to any Type or Status values before the API call.
 
 Use `notion-create-pages` to create a new row in the Lists database.
 
 ### View List Members
 
-Ask the user which list they want to view. Use `notion-fetch` with `contacts_db_id` from config to query contacts, filtering for those whose `Lists` multi_select property contains the list name.
+Ask the user which list they want to view. Use `notion-fetch` with `contacts_db_id` from config to query contacts, filtering for those whose `Lists` multi_select property (resolve the actual property name from `schema.databases.contacts.properties` if schema is loaded) contains the list name.
 
 ```
 Enterprise Prospects (25 contacts):
@@ -68,8 +77,9 @@ Enterprise Prospects (25 contacts):
 
 Options:
 - **By name**: "Add John Smith to the Enterprise Prospects list"
-  - Use `notion-search` to find the contact, then `notion-update-page` to add the list name to their `Lists` multi_select property
+  - Use `notion-search` to find the contact, then `notion-update-page` to add the list name to their `Lists` multi_select property (use actual property name from schema if loaded)
 - **By criteria**: "Add all Hot contacts to the Enterprise Prospects list"
+  - Apply alias resolution from schema for the filter value (e.g., "Hot" → "🔥 Hot")
   - Use `notion-search` to find matching contacts, then update the `Lists` property on each
 
 ### Remove Contacts from a List

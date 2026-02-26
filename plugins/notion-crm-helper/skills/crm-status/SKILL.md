@@ -29,6 +29,8 @@ Read the file `.claude/settings.json` from the current project directory.
 
 Use these IDs in all subsequent steps instead of searching for databases by name.
 
+Also silently read `.claude/crm-schema.json`. If it exists, parse it and extract `last_validated` and compute the age in days. Store for the report in Step 3.
+
 ## Steps
 
 ### Step 1: Test Notion Connection
@@ -66,7 +68,15 @@ Databases:
   Templates:     [N] records  (or "Not found — run /create-crm")
   Activities:    [N] records  (or "Not configured — optional")
 
+Schema:
+  Status:         [Loaded / Not found]
+  Last validated: [ISO timestamp or "N/A"]
+  Age:            [N days old or "N/A"]
+  Warning:        ["> 7 days old — consider re-running /notion-crm-helper:setup" if stale, else omit]
+
 Notion MCP: Connected
 ```
 
 If any databases are missing or returned errors, suggest running `/notion-crm-helper:setup` to update the configuration or `/notion-crm-helper:create-crm` to create them.
+
+If the schema is not found or is stale (> 7 days), suggest running `/notion-crm-helper:setup` to generate or refresh it.

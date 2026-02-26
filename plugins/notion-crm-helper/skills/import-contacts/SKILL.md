@@ -29,6 +29,13 @@ Read the file `.claude/settings.json` from the current project directory.
 
 Use these IDs directly in all Notion operations below instead of searching by database name.
 
+Also silently read `.claude/crm-schema.json`. If it exists, parse it and store as `contact_schema`. Extract:
+- `contact_schema.databases.contacts.properties` — valid property names and types for the Contacts database
+- `contact_schema.select_option_aliases.contacts` — alias map for resolving select/multi_select values in the Contacts database
+- Check `last_validated`: if > 7 days old, warn the user once that the schema may be stale.
+
+If `.claude/crm-schema.json` does not exist, set `contact_schema` to null and continue — column mapping will use the built-in defaults below.
+
 ## Flow
 
 ### Step 1: Read the CSV File
@@ -72,6 +79,13 @@ Common mappings:
 - linkedin, linkedin_url → LinkedIn
 - source, lead_source → Source
 
+**Schema validation (if `contact_schema` is loaded)**: After proposing the mapping, validate each target property name against `contact_schema.databases.contacts.properties`. If a proposed target property does not exist in the schema, flag it to the user: "Note: property '[name]' was not found in your Contacts schema. Please confirm the correct property name." For any `select` or `multi_select` columns being mapped, display the valid options from the schema so the user can preview what values their CSV data will be resolved to:
+```
+CSV column "Engagement" → Engagement Level (select)
+  Valid options: 🔥 Hot, ❄️ Cold, 🌤 Warm
+  (Your CSV values will be automatically matched — "Hot" → "🔥 Hot", etc.)
+```
+
 ### Step 3: Verify the Contacts Database
 
 Use `notion-fetch` with the `contacts_db_id` from config to verify the Contacts database is reachable. If the fetch fails, tell the user to run `/notion-crm-helper:setup` to verify their configuration.
@@ -90,8 +104,9 @@ Report validation results before importing.
 For each contact in batches of 10:
 1. Use `notion-search` to check if a contact with the same email already exists.
 2. **Account upsert** (if `accounts_db_id` is configured and the contact has a Company value): use `notion-search` to check if an Account with that company name already exists in `accounts_db_id`. If not, create a new Account record using `notion-create-pages`. Track newly created accounts to avoid re-creating them for duplicate companies in the same batch.
-3. If the contact exists, use `notion-update-page` to update their record.
-4. If the contact doesn't exist, use `notion-create-pages` to create a new row in the Contacts database.
+3. **Alias resolution** (if `contact_schema` is loaded): before constructing the `notion-create-pages` or `notion-update-page` payload, resolve all `select` and `multi_select` column values using the three-level lookup: `contact_schema.select_option_aliases["contacts"][property_name][raw_csv_value]` (case-insensitive). If a match is found, replace the CSV value with the canonical schema value (e.g., `"Hot"` → `"🔥 Hot"`). If no alias match is found, use the raw value as-is.
+4. If the contact exists, use `notion-update-page` to update their record with resolved values.
+5. If the contact doesn't exist, use `notion-create-pages` to create a new row in the Contacts database with resolved values.
 
 Report progress every 10 contacts.
 

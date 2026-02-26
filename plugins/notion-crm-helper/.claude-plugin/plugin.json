@@ -4,5 +4,17 @@
   "description": "Notion-powered CRM for managing contacts, opportunities, and activities — all managed conversationally through Claude.",
   "author": {
     "name": "Beto Juarez"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check the current project directory for two required Notion CRM config files:\n1. `.claude/settings.json` — must exist AND contain `NOTION_CRM_CONTACTS_DB_ID` in its `env` object\n2. `.claude/crm-schema.json` — must exist\n\nUse the Read tool to check each file. If either condition is not met, invoke /notion-crm-helper:setup before proceeding with anything else."
+          }
+        ]
+      }
+    ]
   }
 }

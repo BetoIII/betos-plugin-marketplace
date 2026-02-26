@@ -1,7 +1,7 @@
 ---
 name: create-crm
 description: Create all CRM databases (Contacts, Accounts, Opportunities, Lists, Templates, Activities) in your Notion workspace under the CRM parent page.
-user_invocable: true
+user_invocable: false
 ---
 
 # Create CRM Databases

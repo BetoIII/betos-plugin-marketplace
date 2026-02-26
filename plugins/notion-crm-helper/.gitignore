@@ -2,3 +2,4 @@
 *.env.local
 .DS_Store
 node_modules/
+notion-crm-helper.config.md

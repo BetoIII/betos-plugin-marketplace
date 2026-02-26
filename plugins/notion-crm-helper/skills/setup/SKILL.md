@@ -107,7 +107,7 @@ If the user confirms, proceed to Step 6. If they want changes, return to Step 4 
 
 ## Step 6 — Save the Configuration
 
-Write the following content to `~/.claude/notion-crm-helper.local.md`, replacing any existing content:
+The config content to write is:
 
 ```
 ---
@@ -127,7 +127,15 @@ This file stores Notion database IDs for the notion-crm-helper plugin. To update
 
 Leave any IDs as empty strings `""` if the user did not provide them.
 
-Use the Write tool to create or overwrite the file at `~/.claude/notion-crm-helper.local.md`.
+**6a. Write the session config** using the Write tool to `~/.claude/notion-crm-helper.local.md` (creates or overwrites).
+
+**6b. Write the persistent config** — this is the copy that survives Claude Desktop VM sessions:
+
+1. Run `echo $CLAUDE_PLUGIN_ROOT` via Bash to get the plugin root path.
+2. If a non-empty path is returned, write the same config content to `[PLUGIN_ROOT]/notion-crm-helper.config.md` using the Write tool.
+3. If `$CLAUDE_PLUGIN_ROOT` is empty (e.g., running outside a plugin context), skip this step and note it to the user.
+
+The `SessionStart` hook automatically copies the persistent config to `~/.claude/notion-crm-helper.local.md` at the start of every new session, so the config survives Claude Desktop VM restarts.
 
 ## Step 7 — Confirm Success
 

@@ -10,18 +10,22 @@ Run this skill to verify your Notion CRM Helper is working correctly.
 
 ## Step 0: Load Configuration
 
-Read the file `~/.claude/notion-crm-helper.local.md`.
+Read the file `.claude/settings.json` from the current project directory.
 
-- If the file does not exist or the YAML frontmatter does not contain `contacts_db_id`, stop and tell the user:
-  > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` to connect your Notion databases before using this skill.
+- If the file does not exist, stop and tell the user:
+  > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` to create your configuration.
+  > Make sure you have a project folder open — configuration is saved to `.claude/settings.json` in your project directory.
 
-- If the file exists, extract these values from the YAML frontmatter:
-  - `contacts_db_id`
-  - `accounts_db_id`
-  - `opportunities_db_id`
-  - `lists_db_id`
-  - `templates_db_id`
-  - `activities_db_id`
+- If the file exists, parse it as JSON and extract database IDs from the `env` object:
+  - `NOTION_CRM_CONTACTS_DB_ID` → contacts database ID
+  - `NOTION_CRM_ACCOUNTS_DB_ID` → accounts database ID
+  - `NOTION_CRM_OPPORTUNITIES_DB_ID` → opportunities database ID
+  - `NOTION_CRM_LISTS_DB_ID` → lists database ID
+  - `NOTION_CRM_TEMPLATES_DB_ID` → templates database ID
+  - `NOTION_CRM_ACTIVITIES_DB_ID` → activities database ID
+  - `NOTION_CRM_PARENT_PAGE_ID` → CRM parent page ID
+
+- If `env` is missing or no `NOTION_CRM_*` keys are present, stop and tell the user to run `/notion-crm-helper:setup`.
 
 Use these IDs in all subsequent steps instead of searching for databases by name.
 

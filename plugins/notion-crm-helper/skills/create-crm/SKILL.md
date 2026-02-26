@@ -17,12 +17,13 @@ This skill creates all 6 CRM databases in your Notion workspace under a parent p
 
 ### Step 0: Load Configuration
 
-Read the file `~/.claude/notion-crm-helper.local.md`.
+Read the file `.claude/settings.json` from the current project directory. Parse it as JSON and check for `NOTION_CRM_PARENT_PAGE_ID` in the `env` object.
 
-- If the file does not exist or the YAML frontmatter does not contain `crm_parent_page_id`, stop and tell the user:
+- If the file does not exist or the `env` object does not contain `NOTION_CRM_PARENT_PAGE_ID`, stop and tell the user:
   > Notion CRM Helper is not configured yet. Run `/notion-crm-helper:setup` first so the parent page ID is saved before creating databases.
+  > Make sure you have a project folder open — configuration is saved to `.claude/settings.json` in your project directory.
 
-- If the file exists, extract `crm_parent_page_id` from the YAML frontmatter. Use this as the parent page for all database creation below.
+- If the file exists and `NOTION_CRM_PARENT_PAGE_ID` is set, extract its value. Use this as the parent page for all database creation below.
 
 ### Step 1: Confirm the Parent Page ID
 
@@ -85,7 +86,7 @@ Use `notion-create-database` to create each database under the parent page. Repo
 
 ### Step 3: Save Database IDs to Config
 
-After each database is created, capture its ID from the API response. Once all databases are created, update `~/.claude/notion-crm-helper.local.md` using the Write tool — preserve the existing `crm_parent_page_id` and fill in all six database IDs with the newly created values.
+After each database is created, capture its ID from the API response. Once all databases are created, read the existing `.claude/settings.json`, merge the six new database IDs into the `env` object (preserving `NOTION_CRM_PARENT_PAGE_ID` and any other existing keys), and write the file back using the Write tool.
 
 ### Step 4: Verify and Report
 
@@ -101,6 +102,6 @@ CRM databases created successfully!
   5. Templates     — Message templates with {{variables}}
   6. Activities    — Calls, emails, meetings, notes, tasks
 
-Database IDs have been saved to ~/.claude/notion-crm-helper.local.md.
+Database IDs have been saved to .claude/settings.json.
 All notion-crm-helper skills are now ready to use.
 ```

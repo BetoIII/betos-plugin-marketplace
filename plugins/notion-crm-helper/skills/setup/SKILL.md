@@ -11,24 +11,48 @@ user_invocable: true
 
 ## Purpose
 
-Collect and save the Notion database IDs for the 6 CRM databases to `~/.claude/notion-crm-helper.local.md`. These IDs are required by all notion-crm-helper skills. Once saved, the config persists across all sessions and can only be updated by running this setup skill again.
+Collect and save the Notion database IDs for the 6 CRM databases to `.claude/settings.json` in the current project directory. These IDs are required by all notion-crm-helper skills. Once saved, the config persists for the project and can only be updated by running this setup skill again.
+
+The expected format is documented in `skills/setup/resources/settings.json` inside the notion-crm-helper plugin.
 
 ## Step 1 — Check for Existing Config
 
-Read the file `~/.claude/notion-crm-helper.local.md`.
+Read the file `.claude/settings.json` from the current project directory. Parse it as JSON and check for the presence of `NOTION_CRM_CONTACTS_DB_ID` in the `env` object.
 
-- If the file exists and contains a YAML frontmatter block with `contacts_db_id` set, show the current config:
+- If the project directory does not have a `.claude/settings.json` file, or the file exists but has no `env` key, proceed directly to Step 2.
+
+- If the file exists and `NOTION_CRM_CONTACTS_DB_ID` is set in `env`, **immediately write the config to `~/.claude/notion-crm-helper.local.md`** (Step 1a below), then show the current config and ask the user if they want to update.
+
+### Step 1a — Write Local Config File (runs whenever settings.json is found)
+
+Using the values read from `.claude/settings.json`, write the file `~/.claude/notion-crm-helper.local.md` with the following YAML frontmatter format. Map the `env` keys to lowercase snake_case property names (drop the `NOTION_CRM_` prefix):
+
+```
+---
+contacts_db_id: "[NOTION_CRM_CONTACTS_DB_ID]"
+accounts_db_id: "[NOTION_CRM_ACCOUNTS_DB_ID]"
+opportunities_db_id: "[NOTION_CRM_OPPORTUNITIES_DB_ID]"
+lists_db_id: "[NOTION_CRM_LISTS_DB_ID]"
+templates_db_id: "[NOTION_CRM_TEMPLATES_DB_ID]"
+activities_db_id: "[NOTION_CRM_ACTIVITIES_DB_ID]"
+crm_parent_page_id: "[NOTION_CRM_PARENT_PAGE_ID]"
+---
+```
+
+Leave any value as `""` if the corresponding env key is empty or missing. Use the Write tool to save the file. Do not tell the user about this step — just do it silently.
+
+After writing `~/.claude/notion-crm-helper.local.md`, show the current config:
 
   ```
   Your current Notion CRM configuration:
 
-  - Contacts DB:      [contacts_db_id]
-  - Accounts DB:      [accounts_db_id or "Not set"]
-  - Opportunities DB: [opportunities_db_id]
-  - Lists DB:         [lists_db_id]
-  - Templates DB:     [templates_db_id]
-  - Activities DB:    [activities_db_id or "Not set"] (optional)
-  - Parent Page:      [crm_parent_page_id or "Not set"]
+  - Contacts DB:      [NOTION_CRM_CONTACTS_DB_ID]
+  - Accounts DB:      [NOTION_CRM_ACCOUNTS_DB_ID or "Not set"]
+  - Opportunities DB: [NOTION_CRM_OPPORTUNITIES_DB_ID]
+  - Lists DB:         [NOTION_CRM_LISTS_DB_ID]
+  - Templates DB:     [NOTION_CRM_TEMPLATES_DB_ID]
+  - Activities DB:    [NOTION_CRM_ACTIVITIES_DB_ID or "Not set"] (optional)
+  - Parent Page:      [NOTION_CRM_PARENT_PAGE_ID or "Not set"]
   ```
 
   Then ask: "Would you like to update your configuration, or keep the current one?"
@@ -36,7 +60,8 @@ Read the file `~/.claude/notion-crm-helper.local.md`.
   - If the user wants to keep it, end the skill: "Your configuration is unchanged. All notion-crm-helper skills will continue using your saved database IDs."
   - If the user wants to update, proceed to Step 2.
 
-- If the file does not exist or is empty, proceed directly to Step 2.
+- If no project folder is loaded (no `.claude/` directory is accessible), stop and tell the user:
+  > No project folder detected. Please open a project directory in Claude Code first — configuration is saved to `.claude/settings.json` in your project folder.
 
 ## Step 2 — Verify Notion Connection
 
@@ -57,19 +82,19 @@ Extract the page ID from the URL — the 32-character hex string at the end (rem
 - `https://www.notion.so/My-CRM-83a0ac85cdd3464c92083b1336f7bfe7` → `83a0ac85cdd3464c92083b1336f7bfe7`
 - `https://www.notion.so/83a0ac85-cdd3-464c-9208-3b1336f7bfe7` → `83a0ac85cdd3464c92083b1336f7bfe7`
 
-Store this as `crm_parent_page_id`.
+Store this as the value for `NOTION_CRM_PARENT_PAGE_ID`.
 
 ## Step 4 — Discover Database IDs
 
 Use `notion-search` to find each of the 6 CRM databases by name. For each result, extract the database ID from the returned object.
 
 Search for:
-1. `"Contacts"` → store ID as `contacts_db_id`
-2. `"Accounts"` → store ID as `accounts_db_id`
-3. `"Opportunities"` → store ID as `opportunities_db_id`
-4. `"Lists"` → store ID as `lists_db_id`
-5. `"Templates"` → store ID as `templates_db_id`
-6. `"Activities"` → store ID as `activities_db_id` *(optional — if not found, skip without flagging as missing)*
+1. `"Contacts"` → store ID as `NOTION_CRM_CONTACTS_DB_ID`
+2. `"Accounts"` → store ID as `NOTION_CRM_ACCOUNTS_DB_ID`
+3. `"Opportunities"` → store ID as `NOTION_CRM_OPPORTUNITIES_DB_ID`
+4. `"Lists"` → store ID as `NOTION_CRM_LISTS_DB_ID`
+5. `"Templates"` → store ID as `NOTION_CRM_TEMPLATES_DB_ID`
+6. `"Activities"` → store ID as `NOTION_CRM_ACTIVITIES_DB_ID` *(optional — if not found, skip without flagging as missing)*
 
 For each database found, confirm with the user: "Found **Contacts** database (ID: `abc123...`). Is this the right one?"
 
@@ -92,13 +117,13 @@ Show the collected values to the user for confirmation before writing:
 ```
 Ready to save your Notion CRM configuration:
 
-- Contacts DB:      [contacts_db_id or "Not set"]
-- Accounts DB:      [accounts_db_id or "Not set"]
-- Opportunities DB: [opportunities_db_id or "Not set"]
-- Lists DB:         [lists_db_id or "Not set"]
-- Templates DB:     [templates_db_id or "Not set"]
-- Activities DB:    [activities_db_id or "Not set"] (optional)
-- Parent Page:      [crm_parent_page_id or "Not set"]
+- Contacts DB:      [NOTION_CRM_CONTACTS_DB_ID or "Not set"]
+- Accounts DB:      [NOTION_CRM_ACCOUNTS_DB_ID or "Not set"]
+- Opportunities DB: [NOTION_CRM_OPPORTUNITIES_DB_ID or "Not set"]
+- Lists DB:         [NOTION_CRM_LISTS_DB_ID or "Not set"]
+- Templates DB:     [NOTION_CRM_TEMPLATES_DB_ID or "Not set"]
+- Activities DB:    [NOTION_CRM_ACTIVITIES_DB_ID or "Not set"] (optional)
+- Parent Page:      [NOTION_CRM_PARENT_PAGE_ID or "Not set"]
 
 Save this configuration?
 ```
@@ -107,34 +132,48 @@ If the user confirms, proceed to Step 6. If they want changes, return to Step 4 
 
 ## Step 6 — Save the Configuration
 
-Write the following content to `~/.claude/notion-crm-helper.local.md`, replacing any existing content:
+### Step 6a — Write the Session Config (always)
 
+Write the confirmed values to `~/.claude/notion-crm-helper.local.md` using the YAML frontmatter format from Step 1a. Do this silently with the Write tool — do not mention it to the user.
+
+Leave any value as `""` if the user did not provide it.
+
+### Step 6b — Offer to Save a Settings File for Future Setup
+
+After writing the local config, ask the user:
+
+> Would you like to save a `settings.json` file for quicker setup next time? This file can be placed in your project's `.claude/` folder so the plugin loads your database IDs automatically on future runs.
+
+- If the user says **no**, skip to Step 7.
+- If the user says **yes**, construct the settings.json content and display it as a code block artifact so the user can copy and save it themselves:
+
+```json
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "NOTION_CRM_CONTACTS_DB_ID": "[CONTACTS_DB_ID]",
+    "NOTION_CRM_ACCOUNTS_DB_ID": "[ACCOUNTS_DB_ID]",
+    "NOTION_CRM_OPPORTUNITIES_DB_ID": "[OPPORTUNITIES_DB_ID]",
+    "NOTION_CRM_LISTS_DB_ID": "[LISTS_DB_ID]",
+    "NOTION_CRM_TEMPLATES_DB_ID": "[TEMPLATES_DB_ID]",
+    "NOTION_CRM_ACTIVITIES_DB_ID": "[ACTIVITIES_DB_ID]",
+    "NOTION_CRM_PARENT_PAGE_ID": "[CRM_PARENT_PAGE_ID]"
+  }
+}
 ```
----
-contacts_db_id: "[CONTACTS_DB_ID]"
-accounts_db_id: "[ACCOUNTS_DB_ID]"
-opportunities_db_id: "[OPPORTUNITIES_DB_ID]"
-lists_db_id: "[LISTS_DB_ID]"
-templates_db_id: "[TEMPLATES_DB_ID]"
-activities_db_id: "[ACTIVITIES_DB_ID]"
-crm_parent_page_id: "[CRM_PARENT_PAGE_ID]"
----
 
-# Notion CRM Helper Configuration
+Tell the user:
 
-This file stores Notion database IDs for the notion-crm-helper plugin. To update these values, run `/notion-crm-helper:setup`.
-```
+> Save this as `.claude/settings.json` in your project folder. Next time you run setup, it will be detected automatically and your configuration will load instantly.
 
 Leave any IDs as empty strings `""` if the user did not provide them.
 
-Use the Write tool to create or overwrite the file at `~/.claude/notion-crm-helper.local.md`.
-
 ## Step 7 — Confirm Success
 
-After writing the file, confirm to the user:
+Confirm to the user:
 
 ```
-Notion CRM configuration saved.
+Notion CRM configuration saved for this session.
 
 All notion-crm-helper skills will now use your saved database IDs automatically.
 
@@ -148,6 +187,6 @@ To update your configuration in the future, run /notion-crm-helper:setup again.
 
 ## Error Handling
 
-- If the Write tool fails, tell the user: "Unable to save the configuration to `~/.claude/notion-crm-helper.local.md`. Please check that your `~/.claude/` directory exists and is writable."
-- Never save a partial configuration without warning the user — if `contacts_db_id` is blank, note that `/import-contacts` and `/manage-list` skills will not work until it is set. `activities_db_id` is optional and may be left blank without blocking setup.
+- If the Write tool fails, tell the user: "Unable to save the configuration to `.claude/settings.json`. Please check that your project's `.claude/` directory exists and is writable. Make sure you have a project folder open in Claude Code."
+- Never save a partial configuration without warning the user — if `NOTION_CRM_CONTACTS_DB_ID` is blank, note that `/import-contacts` and `/manage-list` skills will not work until it is set. `NOTION_CRM_ACTIVITIES_DB_ID` is optional and may be left blank without blocking setup.
 - If `notion-search` returns multiple databases with the same name, show the user all matches with their IDs and ask them to confirm which one to use.

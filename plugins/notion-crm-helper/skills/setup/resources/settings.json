@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "NOTION_CRM_CONTACTS_DB_ID": "your-contacts-database-id",
+    "NOTION_CRM_ACCOUNTS_DB_ID": "your-accounts-database-id",
+    "NOTION_CRM_OPPORTUNITIES_DB_ID": "your-opportunities-database-id",
+    "NOTION_CRM_LISTS_DB_ID": "your-lists-database-id",
+    "NOTION_CRM_TEMPLATES_DB_ID": "your-templates-database-id",
+    "NOTION_CRM_ACTIVITIES_DB_ID": "your-activities-database-id",
+    "NOTION_CRM_PARENT_PAGE_ID": "your-crm-parent-page-id"
+  }
+}

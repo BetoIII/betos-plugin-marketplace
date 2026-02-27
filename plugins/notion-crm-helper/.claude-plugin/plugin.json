@@ -1,6 +1,6 @@
 {
   "name": "notion-crm-helper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Notion-powered CRM for managing contacts, opportunities, and activities — all managed conversationally through Claude.",
   "author": {
     "name": "Beto Juarez"

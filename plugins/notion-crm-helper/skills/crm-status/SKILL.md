@@ -1,6 +1,6 @@
 ---
 name: crm-status
-description: Check the health and status of your Notion CRM — connection status, database inventory, and record counts.
+description: Check the health and status of your Notion CRM — connection status, database inventory, and schema validation.
 user_invocable: true
 ---
 
@@ -29,7 +29,7 @@ Read the file `.claude/settings.json` from the current project directory.
 
 Use these IDs in all subsequent steps instead of searching for databases by name.
 
-Also silently read `.claude/crm-schema.json`. If it exists, parse it and extract `last_validated` and compute the age in days. Store for the report in Step 3.
+Also silently read `.claude/crm-schema.json`. If it exists, parse it and extract `last_validated` and compute the age in days. Store for the report in Step 4.
 
 ## Steps
 
@@ -41,9 +41,11 @@ Use `notion-search` with an empty or broad query to verify the Notion connection
 
 ### Step 2: Database Inventory
 
-Use `notion-fetch` with each stored database ID to retrieve database details and approximate record count. For any ID that is empty (not configured), mark that database as "Not configured — run `/notion-crm-helper:setup`".
+For each configured database, use `notion-fetch` with the database ID to verify it is accessible and retrieve its metadata.
 
-Check:
+For any ID that is empty (not configured), mark that database as "Not configured — run `/notion-crm-helper:setup`".
+
+Check these databases:
 1. `contacts_db_id` → Contacts
 2. `accounts_db_id` → Accounts
 3. `opportunities_db_id` → Opportunities
@@ -51,7 +53,46 @@ Check:
 5. `templates_db_id` → Templates
 6. `activities_db_id` → Activities *(optional — blank is expected if not configured)*
 
-### Step 3: Report
+For each, note whether the fetch succeeded (database is accessible) or failed (database not found or error).
+
+### Step 3: Schema Mismatch Detection
+
+If `crm-schema.json` was loaded in Step 0, perform a live schema validation:
+
+1. For each database that was accessible in Step 2, inspect the properties returned by `notion-fetch` on the database ID.
+2. Compare the live properties against `schema.databases[db_key].properties`:
+   - **New properties**: properties in the live database that are not in the schema
+   - **Removed properties**: properties in the schema that are not in the live database
+   - **Type changes**: properties where the `type` has changed (e.g., `select` → `multi_select`)
+   - **Select option changes**: for `select`/`multi_select` properties, check if the set of options has changed
+3. Record any mismatches found per database.
+
+If **any mismatches are detected**:
+
+1. Report the mismatches clearly in the status output (see Step 4 format).
+2. Build a JSON object containing the live property data for the mismatched databases, formatted as the `refresh-schema.js` script expects:
+   ```json
+   {
+     "<db_key>": {
+       "id": "<database-uuid>",
+       "collection_id": "<collection://url>",
+       "name": "<display name>",
+       "properties": {
+         "PropertyName": { "id": "<short-id>", "type": "<type>", "options": [...] }
+       }
+     }
+   }
+   ```
+3. Tell the user to run the refresh script to update their schema. Provide the exact command:
+   ```
+   node <path-to-refresh-schema.js> .claude/crm-schema.json --data '<the-json>'
+   ```
+   Where `<path-to-refresh-schema.js>` is the absolute path to this skill's `resources/refresh-schema.js`.
+4. After the user runs the script, re-read `.claude/crm-schema.json` and confirm the schema was updated (check that `last_validated` is now current and the version was incremented).
+
+If **no mismatches are detected**, report "Schema is in sync with live databases" in the status output.
+
+### Step 4: Report
 
 Present a status summary:
 
@@ -61,22 +102,36 @@ Notion CRM Helper Status
 Connection: Connected
 
 Databases:
-  Contacts:      [N] records
-  Accounts:      [N] records  (or "Not found — check your Notion setup")
-  Opportunities: [N] records
-  Lists:         [N] records  (or "Not found — check your Notion setup")
-  Templates:     [N] records  (or "Not found — check your Notion setup")
-  Activities:    [N] records  (or "Not configured — optional")
+  Contacts:      [Accessible / Not found — check your Notion setup]
+  Accounts:      [Accessible / Not found — check your Notion setup]
+  Opportunities: [Accessible / Not found — check your Notion setup]
+  Lists:         [Accessible / Not found — check your Notion setup]
+  Templates:     [Accessible / Not found — check your Notion setup]
+  Activities:    [Accessible / Not configured — optional]
 
 Schema:
   Status:         [Loaded / Not found]
   Last validated: [ISO timestamp or "N/A"]
   Age:            [N days old or "N/A"]
-  Warning:        ["> 7 days old — consider re-running /notion-crm-helper:setup" if stale, else omit]
+  Version:        [version string or "N/A"]
+  Validation:     [In sync / Mismatches detected — see below]
+
+[If mismatches detected:]
+Schema Mismatches:
+  [db_name]:
+    - New property: "PropertyName" (type)
+    - Removed property: "PropertyName"
+    - Type changed: "PropertyName" (select → multi_select)
+    - Options changed: "PropertyName" (+2 added, -1 removed)
+
+  → Run this command to update your schema:
+    node <absolute-path>/refresh-schema.js .claude/crm-schema.json --data '<json>'
 
 Notion MCP: Connected
 ```
 
 If any databases are missing or returned errors, suggest running `/notion-crm-helper:setup` to update the configuration.
 
-If the schema is not found or is stale (> 7 days), suggest running `/notion-crm-helper:setup` to generate or refresh it.
+If the schema is not found, suggest running `/notion-crm-helper:setup` to generate it.
+
+If the schema is stale (> 7 days) but no mismatches were found, suggest re-validating with `/notion-crm-helper:crm-status` periodically.

@@ -83,7 +83,7 @@ If **any mismatches are detected**:
      }
    }
    ```
-3. Tell the user to run the refresh script to update their schema. Provide the exact command:
+3. Run the refresh script to update their schema. Provide the exact command:
    ```
    node <path-to-refresh-schema.js> .claude/crm-schema.json --data '<the-json>'
    ```

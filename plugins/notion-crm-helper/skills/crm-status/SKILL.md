@@ -1,6 +1,7 @@
 ---
 name: crm-status
-description: Check the health and status of your Notion CRM — connection status, database inventory, and schema validation. Also let's the user refresh the CRM's schema.
+description: Check the health and status of your Notion CRM — connection status, 
+database inventory, and schema validation. Also let's the user refresh the CRM's schema.
 ---
 
 # CRM Status Check & Schema Refresh

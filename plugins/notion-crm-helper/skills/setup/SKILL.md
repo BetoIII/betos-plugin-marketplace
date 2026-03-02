@@ -1,12 +1,10 @@
 ---
 name: setup
-description: >-
-  This skill should be used when the user says "set up notion crm", "configure
+description: This skill should be used when the user says "set up notion crm", "configure
   notion crm helper", "run setup", "update my crm databases", or runs
   /notion-crm-helper:setup. Collects the Notion database IDs for all 6 CRM
   databases and saves them persistently so all notion-crm-helper skills know
   where to find the user's data.
-user_invocable: true
 ---
 
 ## Purpose

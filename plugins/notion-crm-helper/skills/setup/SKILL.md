@@ -282,7 +282,7 @@ Schema file saved: `.claude/crm-schema.json`
 
 Next steps:
 - /notion-crm-helper:crm-status — verify all databases are reachable
-- /notion-crm-helper:crm-assistant — start managing contacts, pipeline, and activities
+- /notion-crm-helper:crm-helper — start managing contacts, pipeline, and activities
 
 To update your configuration in the future, run /notion-crm-helper:setup again.
 ```
@@ -290,5 +290,5 @@ To update your configuration in the future, run /notion-crm-helper:setup again.
 ## Error Handling
 
 - If the Write tool fails, tell the user: "Unable to save the configuration to `.claude/settings.json`. Please check that your project's `.claude/` directory exists and is writable. Make sure you have a project folder open in Claude Code."
-- Never save a partial configuration without warning the user — if `NOTION_CRM_CONTACTS_DB_ID` is blank, note that contact and list operations in `/notion-crm-helper:crm-assistant` will not work until it is set. `NOTION_CRM_ACTIVITIES_DB_ID` is optional and may be left blank without blocking setup.
+- Never save a partial configuration without warning the user — if `NOTION_CRM_CONTACTS_DB_ID` is blank, note that contact and list operations in `/notion-crm-helper:crm-helper` will not work until it is set. `NOTION_CRM_ACTIVITIES_DB_ID` is optional and may be left blank without blocking setup.
 - If `notion-search` returns multiple databases with the same name, show the user all matches with their IDs and ask them to confirm which one to use.

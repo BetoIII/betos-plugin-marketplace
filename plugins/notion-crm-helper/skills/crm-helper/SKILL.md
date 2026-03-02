@@ -1,5 +1,5 @@
 ---
-name: crm-assistant
+name: crm-helper
 description: >-
   This skill should be used when the user asks about CRM tasks such as managing
   contacts, tracking deals or opportunities, logging activities, searching the

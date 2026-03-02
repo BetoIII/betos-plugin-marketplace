@@ -31,7 +31,7 @@ In Claude Code, run:
 |---------|-------------|
 | `/setup` | First-time configuration |
 | `/crm-status` | Check system health and database counts |
-| `/crm-assistant` | Conversational CRM assistant — manage contacts, pipeline, activities, and bulk imports |
+| `/crm-helper` | Conversational CRM assistant — manage contacts, pipeline, activities, and bulk imports |
 
 ## CRM Databases
 
@@ -72,4 +72,4 @@ This format is compatible with Claude Desktop (Cowork) and does not require acce
 - **Config**: Saved to `.claude/settings.json` in the project directory
 - **MCP Server**: Uses Notion's official hosted MCP at `https://mcp.notion.com/mcp`
 - **Skills**: Conversational workflows for common CRM operations
-- **crm-assistant**: Conversational skill for autonomous CRM task handling, including bulk imports from CSV, JSON, pasted tables, or any structured data
+- **crm-helper**: Conversational skill for autonomous CRM task handling, including bulk imports from CSV, JSON, pasted tables, or any structured data

@@ -30,7 +30,8 @@ In Claude Code, run:
 | Command | Description |
 |---------|-------------|
 | `/setup` | First-time configuration |
-| `/crm-status` | Check system health and database counts |
+| `/validate-schema` | Check system health and confirm database connectivity |
+| `/refresh-schema` | Re-fetch live database IDs and properties, update schema |
 | `/crm-helper` | Conversational CRM assistant — manage contacts, pipeline, activities, and bulk imports |
 
 ## CRM Databases

@@ -275,7 +275,8 @@ Found 12 contacts:
 ## Related Skills
 
 - `/notion-crm-helper:setup` — First-time configuration
-- `/notion-crm-helper:crm-status` — System health check
+- `/notion-crm-helper:validate-schema` — Check schema health and detect property drift
+- `/notion-crm-helper:refresh-schema` — Update schema with live database IDs and properties
 
 ---
 
@@ -289,9 +290,22 @@ Found 12 contacts:
 → **Fix**: Apply UUID sanitization BEFORE the API call - strip all whitespace and normalize to UUID format
 → **Prevention**: ALWAYS sanitize page IDs from user input, search results, or URLs before using in relations
 
-**Schema Mismatch** (property not found):
-→ Check `crm-schema.json` for correct property name
-→ User may need to update schema if CRM structure changed
+### Schema and Database ID Errors
+
+**Schema Mismatch** (property not found or wrong type):
+Run `/notion-crm-helper:validate-schema` to check whether the live database has changed.
+If mismatches are confirmed, run `/notion-crm-helper:refresh-schema` to update the schema.
+
+**Database ID 404 Error** (database not found with cached ID):
+The database ID in `crm-schema.json` may be stale.
+Run `/notion-crm-helper:refresh-schema` to re-discover current IDs automatically, then retry the original operation.
+
+**Multiple Database IDs Changed**:
+Run `/notion-crm-helper:refresh-schema` — it detects and updates all changed IDs in a single pass.
+
+**Stale Schema** (schema older than 7 days):
+Run `/notion-crm-helper:validate-schema` to check sync status.
+If mismatches are detected, follow up with `/notion-crm-helper:refresh-schema`.
 
 **Invalid Select Option**:
 → Check schema for valid options
@@ -302,89 +316,6 @@ Found 12 contacts:
 
 **Duplicate Contact**:
 → Search returned existing record, update instead of create
-
-### Verbose Recovery Messages
-
-When errors occur, use clear, informative messages that explain what's being fixed:
-
-**Before (silent retry)**:
-```
-Try cached ID → 404 → Retry with different approach
-```
-User sees nothing, wastes tokens on retries.
-
-**After (verbose recovery)**:
-```
-⚠️ Cached Opportunities DB ID returned 404
-   Cached: e853860d-5c8f-4821-a7f2-5e6ea7f32b06
-   Searching for "🏆 Opportunities (Pipeline)"...
-   ✅ Found at: ac316070-57a3-449a-980f-61bf01003979
-   📝 Schema updated. Continuing with corrected ID.
-```
-User understands what happened and sees the fix was automatic.
-
-### Error Recovery Examples
-
-**Database ID 404 Error**:
-```
-⚠️ Database not found: Contacts
-   Cached ID: 2a4e833b-5a49-81dd-a36c-faa344cc523f
-   🔍 Searching for "⏩ Contact Database"...
-   ✅ Located database
-   New ID: 2c3e833b-5a49-81f4-9868-000ba64b6240
-   📝 Updated crm-schema.json
-   ⏰ Last validated: 2026-01-05T13:14:00.000Z
-   ✅ Retrying operation with corrected ID...
-```
-
-**Property Not Found Error**:
-```
-⚠️ Property "Company Type" not found in Accounts database
-   🔍 Checking schema against actual database...
-   ✅ Property exists but has different internal ID
-   Old property ID: "eDptYQ"
-   New property ID: "xR2tZA"
-   📝 Schema updated
-   ✅ Retrying with corrected property ID...
-```
-
-**Relation Link Failed**:
-```
-⚠️ Failed to link Contact to Account
-   Issue: Invalid page ID format (whitespace detected)
-   Raw ID: "2c3e833b5a4981 84b902c54b53b6f7d5"
-   🔧 Applying UUID sanitization...
-   Sanitized ID: "2c3e833b-5a49-8184-b902-c54b53b6f7d5"
-   ✅ Retrying relation update...
-   ✅ Contact linked successfully
-```
-
-**Multiple Database IDs Changed**:
-```
-⚠️ Schema validation detected multiple stale database IDs:
-
-   📊 Contacts Database
-      Cached:  2a4e833b-5a49-81dd-a36c-faa344cc523f
-      Current: 2c3e833b-5a49-81f4-9868-000ba64b6240
-      Status:  ⚠️  UPDATED
-
-   📊 Opportunities Database
-      Cached:  e853860d-5c8f-4821-a7f2-5e6ea7f32b06
-      Current: ac316070-57a3-449a-980f-61bf01003979
-      Status:  ⚠️  UPDATED
-
-   📝 Schema file updated with 2 corrected database IDs
-   ⏰ Last validated: 2026-01-05T13:14:00.000Z
-   ✅ Continuing with your original request...
-```
-
-### Recovery Best Practices
-
-1. **Always log what failed**: Show the cached value that didn't work
-2. **Explain the fix**: Describe what search/correction was performed
-3. **Show the new value**: Display the corrected ID or value
-4. **Confirm the update**: Note that schema was updated
-5. **Continue the workflow**: Reassure user the original task will complete
 
 ### ⚠️ Notion MCP Relation Limitation (IMPORTANT)
 

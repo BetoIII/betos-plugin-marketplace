@@ -279,7 +279,7 @@ All notion-crm-helper skills will now use your saved database IDs automatically.
 Schema file saved: `.claude/crm-schema.json`
 
 Next steps:
-- /notion-crm-helper:crm-status — verify all databases are reachable
+- /notion-crm-helper:validate-schema — verify all databases are reachable
 - /notion-crm-helper:crm-helper — start managing contacts, pipeline, and activities
 
 To update your configuration in the future, run /notion-crm-helper:setup again.

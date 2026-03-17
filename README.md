@@ -69,6 +69,20 @@ Real estate assistant for buyer's agents — disclosure package summaries, MLS c
 
 ---
 
+### [rain](plugins/rain)
+
+Support operations toolkit for the Rain team — Pylon issue triage, routing, and classification against the Horatio/Rain support scope agreement.
+
+**Install:**
+```
+/plugin install rain@BetoIII/betos-plugin-marketplace
+```
+
+**Skills:**
+- `triage-pylon-issues` — Fetches Pylon issues, classifies them to Horatio or Rain based on the support scope agreement, and tags them for routing
+
+---
+
 ## License
 
 MIT License — see [LICENSE](LICENSE) file for details.

@@ -38,13 +38,78 @@ is important and shouldn't be skipped. A card that fails compliance can delay an
 The image can arrive in three ways. Handle each one:
 
 ### A) Image attached directly in the conversation
-Check common upload locations — `~/uploads/`, `/tmp/uploads/`, or any path the user mentions.
-If the file is present, use that path with the spec checker script.
+Run the following Python to find the uploads folder and any image files in it — the session name
+changes every session, so never hardcode it:
 
-If the uploads folder is empty, the image is only available visually in the conversation context.
-In that case, **skip the Python spec checker and proceed to visual-only mode** (see note at end of
-this step). You can still run a meaningful review — just flag which technical checks couldn't be
-verified programmatically.
+```python
+import glob, os
+
+# Dynamically find the uploads folder (session name varies every run)
+sessions = sorted(glob.glob('/sessions/*/mnt/uploads/'))
+uploads_dir = sessions[0] if sessions else None
+
+image_extensions = ['*.png', '*.jpg', '*.jpeg', '*.webp',
+                    '*.PNG', '*.JPG', '*.JPEG', '*.WEBP']
+image_files = []
+if uploads_dir:
+    for ext in image_extensions:
+        image_files.extend(glob.glob(os.path.join(uploads_dir, ext)))
+
+if image_files:
+    print(f"Found: {image_files}")
+else:
+    print(f"No image files found in: {uploads_dir}")
+```
+
+Use the first image found as the source file for Step 2. If multiple images are present, ask the
+user which one to check.
+
+**If no image file is found in uploads** (i.e. the image was pasted inline rather than uploaded
+via the file picker), do NOT fall back to visual-only mode — instead proceed to **inline
+reconstruction** (Step 1B below) to create a working file so the spec checker can run.
+
+### A2) Inline reconstruction (when no file is found on disk)
+
+Cowork does not write inline-pasted images to disk — they only exist as base64 in the
+conversation context. To work around this, reconstruct a working PNG file using PIL based on
+what you can observe visually. This is not pixel-perfect, but it allows the spec checker to run
+and eliminates ⚠️ Unverified results wherever possible.
+
+Before writing the reconstruction code, visually inspect the image and determine:
+
+1. **Background color** — the dominant solid fill color (as R, G, B integers)
+2. **Color mode** — is it RGB (solid, no transparency) or RGBA (has transparent areas)?
+3. **Approximate dimensions** — estimate width × height in pixels:
+   - Standard digital card art is **1536 × 969**. If the image looks like a standard landscape
+     card and there's no reason to think otherwise, use these dimensions.
+   - If the image is clearly a different size or aspect ratio, estimate accordingly.
+4. **Filename** — derive a sensible filename from the card name/context (e.g.
+   `visa_platinum_white.png`)
+
+Then run this Python, substituting in your observations:
+
+```python
+from PIL import Image
+import os
+
+# --- Fill these in based on visual inspection ---
+bg_color     = (R, G, B)           # e.g. (255, 255, 255) for white
+color_mode   = "RGB"               # "RGB" or "RGBA"
+width        = 1536                # estimated width in pixels
+height       = 969                 # estimated height in pixels
+filename     = "card_art_inline.png"
+# ------------------------------------------------
+
+out_path = f"/tmp/{filename}"
+img = Image.new(color_mode, (width, height), bg_color)
+img.save(out_path, "PNG", dpi=(72, 72))
+print(f"Saved reconstruction to: {out_path} ({width}x{height}, {color_mode})")
+```
+
+Use `out_path` as the source file for Step 2. In the final report, mark the Dimensions row as
+`⚠️ Estimated` (not ✅ Pass or ❌ Fail) and add a note: *"Inline paste — dimensions estimated
+visually. Upload via file picker for pixel-accurate verification."* All other checks (color mode,
+format, DPI, visual checklist) can be reported normally.
 
 ### B) URL provided (e.g., a Slack link, Google Drive link, or direct image URL)
 Try to download the image using Python:
@@ -65,26 +130,43 @@ print(f"Downloaded to {out_path}")
 ```
 
 If the URL is behind authentication (e.g., Slack, Google Drive) and the download fails or returns
-HTML instead of image bytes, **fall back to visual-only mode**. Note the URL source in the report.
+HTML instead of image bytes, **use inline reconstruction (Step A2 above)**. Note the URL source
+in the report and mark Dimensions as ⚠️ Estimated.
 
 ### C) File path provided explicitly
 Use the path directly with the spec checker script.
 
 ---
 
-**Visual-only mode** (when no file is accessible on disk): Skip the Python script. Do the full
-visual checklist in Step 3, and in the Technical Specs section of the report, mark dimensions,
-color mode, and DPI as ⚠️ Unverified with a note explaining why. You can still confirm file
-format from the filename/URL extension or Slack metadata if available.
-
----
-
 ## Step 2: Run the technical spec checker
 
-Once you have a file path, run:
+Once you have a file path, locate and run the spec checker script. The script is extracted alongside
+the skill — find it dynamically (session name changes every run):
 
+```python
+import glob, subprocess, sys
+
+# Find the spec checker script — never hardcode the session name
+scripts = glob.glob('/sessions/*/card-art-checker/scripts/check_technical_specs.py')
+if not scripts:
+    # Also check the extracted skill folder name variations
+    scripts = glob.glob('/sessions/*/card-art-checker-extracted/card-art-checker/scripts/check_technical_specs.py')
+
+if scripts:
+    script_path = scripts[0]
+    result = subprocess.run([sys.executable, script_path, "<path-to-image>"],
+                            capture_output=True, text=True)
+    print(result.stdout)
+else:
+    print("Script not found — will need to extract from skill zip first")
+```
+
+If the script isn't found, extract the skill zip first:
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/card-art-checker/scripts/check_technical_specs.py" <path-to-image>
+# Find and extract the skill zip
+SKILL_ZIP=$(find /sessions/*/mnt/uploads/ -name "card-art-checker.skill" 2>/dev/null | head -1)
+SESSION_DIR=$(echo "$SKILL_ZIP" | grep -oP '/sessions/[^/]+')
+unzip -o "$SKILL_ZIP" -d "${SESSION_DIR}/card-art-checker/"
 ```
 
 This outputs JSON with:

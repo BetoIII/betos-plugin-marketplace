@@ -1,6 +1,6 @@
 # Beto's Plugin Marketplace
 
-A collection of Claude Code plugins for messaging, CRM, and real estate workflows.
+A collection of Claude Code plugins for messaging, CRM, real estate, and fintech support workflows.
 
 ## Installation
 
@@ -69,17 +69,19 @@ Real estate assistant for buyer's agents — disclosure package summaries, MLS c
 
 ---
 
-### [rain](plugins/rain)
+### [rain-platform](plugins/rain-platform)
 
-Support operations toolkit for the Rain team — Pylon issue triage, routing, and classification against the Horatio/Rain support scope agreement.
+Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, and partner onboarding video review.
 
 **Install:**
 ```
-/plugin install rain@BetoIII/betos-plugin-marketplace
+/plugin install rain-platform@BetoIII/betos-plugin-marketplace
 ```
 
 **Skills:**
 - `triage-pylon-issues` — Fetches Pylon issues, classifies them to Horatio or Rain based on the support scope agreement, and tags them for routing
+- `card-art-checker` — Reviews virtual card art submissions against Visa Digital Card Brand Standards; validates technical specs, visual compliance, and extracts RGB fallback colors
+- `partner-video-review` — Analyzes partner sandbox onboarding screen recordings against Rain's compliance requirements; frame-extracts the video and produces a structured pass/fail report
 
 ---
 

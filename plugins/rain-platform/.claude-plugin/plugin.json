@@ -1,7 +1,7 @@
 {
   "name": "rain-platform",
   "version": "0.1.0",
-  "description": "Support operations toolkit for the Rain team — Pylon issue triage, routing, and classification against the Horatio/Rain support scope agreement",
+  "description": "Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, and partner onboarding video review",
   "author": {
     "name": "Beto Juárez III",
     "email": "betojuareziii@gmail.com"

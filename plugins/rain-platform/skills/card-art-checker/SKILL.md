@@ -38,7 +38,7 @@ is important and shouldn't be skipped. A card that fails compliance can delay an
 The image can arrive in three ways. Handle each one:
 
 ### A) Image attached directly in the conversation
-Check `/sessions/eloquent-optimistic-allen/mnt/uploads/` first — Cowork saves uploaded files there.
+Check common upload locations — `~/uploads/`, `/tmp/uploads/`, or any path the user mentions.
 If the file is present, use that path with the spec checker script.
 
 If the uploads folder is empty, the image is only available visually in the conversation context.
@@ -84,7 +84,7 @@ format from the filename/URL extension or Slack metadata if available.
 Once you have a file path, run:
 
 ```bash
-python3 /sessions/eloquent-optimistic-allen/card-art-checker/scripts/check_technical_specs.py <path-to-image>
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/card-art-checker/scripts/check_technical_specs.py" <path-to-image>
 ```
 
 This outputs JSON with:

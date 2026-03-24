@@ -41,13 +41,13 @@
       "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
     },
     {
-      "name": "rain",
-      "description": "Support operations toolkit for the Rain team — Pylon issue triage, routing, and classification against the Horatio/Rain support scope agreement",
+      "name": "rain-platform",
+      "description": "Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, and partner onboarding video review",
       "author": {
         "name": "Beto Juárez III",
         "email": "betojuareziii@gmail.com"
       },
-      "source": "./plugins/rain",
+      "source": "./plugins/rain-platform",
       "category": "productivity",
       "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
     }

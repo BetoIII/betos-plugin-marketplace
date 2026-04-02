@@ -6,6 +6,9 @@ Extracts dominant colors and suggests background, foreground, and label RGB valu
 Generates an output image showing the 56px bleed border, suggested RGB values,
 and a sample last-4 PAN overlay.
 
+Can also generate a full results image with numbered markers on the card,
+overall status, tech spec table, and visual design compliance table.
+
 DPI is calculated as: pixel_width / CARD_WIDTH_INCHES
 where CARD_WIDTH_INCHES = 3.375 (ISO ID-1 standard credit card width).
 For Visa digital card display, a minimum of 72 DPI is required.
@@ -13,6 +16,8 @@ At the standard 1536px width, calculated DPI is ~455, well above the minimum.
 
 Usage:
     python3 check_technical_specs.py <image_path> [--output-dir /path/to/dir]
+    python3 check_technical_specs.py <image_path> --visual-results '<json>' [--output-dir /path]
+    python3 check_technical_specs.py <image_path> --visual-results-file results.json [--output-dir /path]
 
 Outputs JSON with technical check results and extracted colors.
 Also saves an output image to the same directory as the input (or --output-dir).
@@ -22,6 +27,7 @@ import sys
 import json
 import os
 import argparse
+import textwrap
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -39,6 +45,29 @@ REQUIRED_FORMAT = "PNG"
 CARD_WIDTH_INCHES = 3.375   # ISO ID-1 standard credit card width
 MIN_DPI_DIGITAL = 72        # Visa minimum DPI for digital card display
 VISA_MARK_EDGE_MARGIN = 56  # pixels — applies ONLY to the Visa Brand Mark
+
+# Status colors
+COLOR_PASS = (34, 139, 34)       # forest green
+COLOR_FAIL = (207, 34, 46)      # red
+COLOR_WARNING = (210, 140, 20)  # amber/orange
+COLOR_UNVERIFIED = (140, 140, 140)  # gray
+COLOR_ESTIMATED = (210, 140, 20)
+
+STATUS_COLORS = {
+    "pass": COLOR_PASS,
+    "fail": COLOR_FAIL,
+    "warning": COLOR_WARNING,
+    "estimated": COLOR_ESTIMATED,
+    "unverified": COLOR_UNVERIFIED,
+}
+
+STATUS_LABELS = {
+    "pass": "PASS",
+    "fail": "FAIL",
+    "warning": "WARN",
+    "estimated": "EST.",
+    "unverified": "N/V",
+}
 
 
 def extract_colors(img):
@@ -74,26 +103,22 @@ def extract_colors(img):
     bg_luminance = 0.299 * bg_color[0] + 0.587 * bg_color[1] + 0.114 * bg_color[2]
 
     # Separate dominant colors into "background-like" and "accent" colors
-    # Background-like = close in luminance to bg_color; accent = everything else with enough contrast
     accent_colors = []
     for dc in dominant_colors:
         c = dc["rgb"]
         lum = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
         contrast = abs(lum - bg_luminance)
-        # Check it's not just a shade of gray close to background
-        is_chromatic = max(c) - min(c) > 20  # has some color saturation
+        is_chromatic = max(c) - min(c) > 20
         if contrast > 40:
             accent_colors.append({"rgb": c, "lum": lum, "contrast": contrast,
                                   "chromatic": is_chromatic, "count": dc["count"]})
 
-    # Foreground color: prefer a chromatic accent color with good contrast, fall back to white/black
+    # Foreground color: prefer a chromatic accent color with good contrast
     suggested_fg = [255, 255, 255] if bg_luminance < 128 else [30, 30, 30]
-    # First try chromatic accents (brand colors like gold, blue, etc.)
     for ac in accent_colors:
         if ac["chromatic"] and ac["contrast"] > 60:
             suggested_fg = ac["rgb"]
             break
-    # If no chromatic accent found, use the highest-contrast dominant color
     if suggested_fg in ([255, 255, 255], [30, 30, 30]):
         for ac in sorted(accent_colors, key=lambda x: x["contrast"], reverse=True):
             if ac["contrast"] > 60:
@@ -139,7 +164,6 @@ def extract_colors(img):
 
 def _load_font(size, bold=False):
     """Try to load a system font at the given size. Returns ImageFont."""
-    # Bold font paths (try these first when bold=True)
     bold_fonts = [
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
         "/System/Library/Fonts/Helvetica Bold.ttc",
@@ -164,12 +188,11 @@ def _load_font(size, bold=False):
 def _draw_dashed_rect(draw, rect, color, width=2, dash_len=16, gap_len=10):
     """Draw a dashed rectangle on an ImageDraw surface."""
     x0, y0, x1, y1 = rect
-    # Draw four sides as dashed lines
     for start, end, horizontal in [
-        ((x0, y0), (x1, y0), True),   # top
-        ((x1, y0), (x1, y1), False),  # right
-        ((x1, y1), (x0, y1), True),   # bottom
-        ((x0, y1), (x0, y0), False),  # left
+        ((x0, y0), (x1, y0), True),
+        ((x1, y0), (x1, y1), False),
+        ((x1, y1), (x0, y1), True),
+        ((x0, y1), (x0, y0), False),
     ]:
         if horizontal:
             length = abs(end[0] - start[0])
@@ -193,28 +216,173 @@ def _draw_dashed_rect(draw, rect, color, width=2, dash_len=16, gap_len=10):
                 pos += dash_len + gap_len
 
 
+def _draw_marker(draw, cx, cy, number, status, font, size=34):
+    """Draw a numbered marker circle on the card at (cx, cy)."""
+    color = STATUS_COLORS.get(status, COLOR_UNVERIFIED)
+    # Outer white ring for visibility
+    draw.ellipse([cx - size // 2 - 2, cy - size // 2 - 2,
+                  cx + size // 2 + 2, cy + size // 2 + 2],
+                 fill=(255, 255, 255))
+    # Colored circle
+    draw.ellipse([cx - size // 2, cy - size // 2,
+                  cx + size // 2, cy + size // 2],
+                 fill=color)
+    # Number text centered
+    text = str(number)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    draw.text((cx - tw // 2, cy - th // 2 - 1), text, fill=(255, 255, 255), font=font)
+
+
+def _wrap_text(draw, text, font, max_width):
+    """Wrap text to fit within max_width pixels. Returns list of lines."""
+    if not text:
+        return [""]
+    words = text.split()
+    lines = []
+    current = ""
+    for word in words:
+        test = f"{current} {word}".strip()
+        bbox = draw.textbbox((0, 0), test, font=font)
+        if bbox[2] - bbox[0] <= max_width:
+            current = test
+        else:
+            if current:
+                lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines or [""]
+
+
+def _truncate_text(draw, text, font, max_width):
+    """Truncate text with '...' if it exceeds max_width pixels."""
+    if not text:
+        return ""
+    bbox = draw.textbbox((0, 0), text, font=font)
+    if bbox[2] - bbox[0] <= max_width:
+        return text
+    while len(text) > 4:
+        text = text[:-4] + "..."
+        bbox = draw.textbbox((0, 0), text, font=font)
+        if bbox[2] - bbox[0] <= max_width:
+            return text
+    return text
+
+
+def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts, row_height=42):
+    """
+    Draw a table on the canvas. Returns total height consumed.
+
+    headers: list of column header strings
+    rows: list of dicts with keys:
+        'cells': list of cell strings (one per column)
+        'status': 'pass'|'fail'|'warning' (colors the Result column)
+        'marker_num': int or None (for Ref column marker indicator)
+    col_ratios: list of floats summing to ~1.0
+    fonts: dict with 'header' and 'cell' ImageFont objects
+    """
+    header_bg = (38, 42, 52)
+    header_fg = (255, 255, 255)
+    row_bg_even = (248, 249, 252)
+    row_bg_odd = (255, 255, 255)
+    border_color = (210, 215, 222)
+    text_color_default = (40, 44, 52)
+
+    # Compute pixel widths for columns
+    col_widths = [int(r * width) for r in col_ratios]
+    col_widths[-1] = width - sum(col_widths[:-1])  # fill remainder
+
+    current_y = y
+
+    # --- Header row ---
+    hx = x
+    for header_text, cw in zip(headers, col_widths):
+        draw.rectangle([hx, current_y, hx + cw, current_y + row_height],
+                       fill=header_bg, outline=border_color)
+        draw.text((hx + 12, current_y + 10), header_text,
+                  fill=header_fg, font=fonts['header'])
+        hx += cw
+    current_y += row_height
+
+    # --- Data rows ---
+    for ri, row in enumerate(rows):
+        bg = row_bg_even if ri % 2 == 0 else row_bg_odd
+        cells = row['cells']
+        status = row.get('status', 'pass')
+        marker_num = row.get('marker_num')
+
+        rx = x
+        for ci, (cell_text, cw) in enumerate(zip(cells, col_widths)):
+            draw.rectangle([rx, current_y, rx + cw, current_y + row_height],
+                           fill=bg, outline=border_color)
+
+            cell_color = text_color_default
+            cell_font = fonts['cell']
+
+            # Ref column (first column): draw marker indicator if present
+            if ci == 0 and marker_num is not None:
+                marker_color = STATUS_COLORS.get(status, COLOR_UNVERIFIED)
+                dot_r = 13
+                dot_cx = rx + cw // 2
+                dot_cy = current_y + row_height // 2
+                draw.ellipse([dot_cx - dot_r, dot_cy - dot_r,
+                              dot_cx + dot_r, dot_cy + dot_r],
+                             fill=marker_color)
+                num_text = str(marker_num)
+                nb = draw.textbbox((0, 0), num_text, font=fonts['marker'])
+                draw.text((dot_cx - (nb[2] - nb[0]) // 2,
+                           dot_cy - (nb[3] - nb[1]) // 2 - 1),
+                          num_text, fill=(255, 255, 255), font=fonts['marker'])
+                rx += cw
+                continue
+
+            # Result column: color text by status
+            if ci == len(cells) - 2 or (len(headers) == 3 and ci == 1):
+                # Heuristic: the "Result" column — color it
+                if "PASS" in cell_text.upper():
+                    cell_color = COLOR_PASS
+                    cell_font = fonts['header']  # bold
+                elif "FAIL" in cell_text.upper():
+                    cell_color = COLOR_FAIL
+                    cell_font = fonts['header']
+                elif "WARN" in cell_text.upper():
+                    cell_color = COLOR_WARNING
+                    cell_font = fonts['header']
+                elif "EST" in cell_text.upper():
+                    cell_color = COLOR_ESTIMATED
+                    cell_font = fonts['header']
+
+            # Truncate text to fit column
+            display = _truncate_text(draw, cell_text, cell_font, cw - 24)
+            draw.text((rx + 12, current_y + 10), display,
+                      fill=cell_color, font=cell_font)
+            rx += cw
+        current_y += row_height
+
+    return current_y - y
+
+
 def generate_output_image(img, colors, output_path):
     """
-    Generate an output image showing:
+    Generate a basic review image showing:
     - The card art with a red dashed 56px quiet zone drawn INSIDE the card
     - A sample last-4 PAN in the suggested foreground color
-    - RGB color values displayed to the right of the card, each label colored
-      to match the color it describes
+    - RGB color values displayed to the right of the card
     """
     card_w, card_h = img.size
-    quiet_zone = VISA_MARK_EDGE_MARGIN  # 56px
+    quiet_zone = VISA_MARK_EDGE_MARGIN
 
     bg_rgb = tuple(colors["background"]["rgb"])
     fg_rgb = tuple(colors["foreground"]["rgb"])
     label_rgb = tuple(colors["label"]["rgb"])
 
-    # Canvas layout — card on the left, color panel on the right
     padding = 50
     right_panel_w = 600
     canvas_w = padding + card_w + padding + right_panel_w + padding
     canvas_h = padding + card_h + padding
 
-    # Canvas background: a soft tint of the card's background color
     bg_lum = 0.299 * bg_rgb[0] + 0.587 * bg_rgb[1] + 0.114 * bg_rgb[2]
     if bg_lum < 128:
         canvas_bg = tuple(min(255, c + 80) for c in bg_rgb)
@@ -224,38 +392,30 @@ def generate_output_image(img, colors, output_path):
     canvas = Image.new("RGB", (canvas_w, canvas_h), canvas_bg)
     draw = ImageDraw.Draw(canvas)
 
-    # Paste the card art (no extra borders)
     card_x = padding
     card_y = padding
     card_rgb = img.convert("RGB")
     canvas.paste(card_rgb, (card_x, card_y))
 
-    # Draw the 56px quiet zone as a red dashed rectangle INSIDE the card
     quiet_rect = [
-        card_x + quiet_zone,
-        card_y + quiet_zone,
-        card_x + card_w - quiet_zone,
-        card_y + card_h - quiet_zone,
+        card_x + quiet_zone, card_y + quiet_zone,
+        card_x + card_w - quiet_zone, card_y + card_h - quiet_zone,
     ]
     _draw_dashed_rect(draw, quiet_rect, color=(255, 0, 0), width=3, dash_len=18, gap_len=12)
 
-    # Overlay sample PAN "•••• 6789" in the bottom-left of the card
     font_pan = _load_font(88, bold=True)
-    pan_text = "•••• 6789"
+    pan_text = "\u2022\u2022\u2022\u2022 6789"
     pan_x = card_x + quiet_zone + 10
     pan_y = card_y + card_h - quiet_zone - 110
     draw.text((pan_x, pan_y), pan_text, fill=fg_rgb, font=font_pan)
 
-    # --- Right panel: color labels ---
-    # Each line: "Background color:  [swatch]  R,G,B"
-    # Text color matches the color being described
     font_panel = _load_font(36, bold=True)
     swatch_size = 40
     line_spacing = 90
     num_entries = 3
-    total_panel_height = num_entries * line_spacing - (line_spacing - 40)  # height of all 3 rows
+    total_panel_height = num_entries * line_spacing - (line_spacing - 40)
     panel_x = card_x + card_w + padding + 10
-    panel_y = card_y + (card_h - total_panel_height) // 2  # vertically centered
+    panel_y = card_y + (card_h - total_panel_height) // 2
 
     color_entries = [
         ("Background color:", bg_rgb),
@@ -265,34 +425,23 @@ def generate_output_image(img, colors, output_path):
 
     for i, (label_text, rgb_val) in enumerate(color_entries):
         y = panel_y + i * line_spacing
-        text_color = rgb_val  # label text matches the color it describes
-
-        # Ensure the text is readable against the canvas background
-        # If contrast is too low, add a slight outline effect
+        text_color = rgb_val
         text_lum = 0.299 * rgb_val[0] + 0.587 * rgb_val[1] + 0.114 * rgb_val[2]
         canvas_lum = 0.299 * canvas_bg[0] + 0.587 * canvas_bg[1] + 0.114 * canvas_bg[2]
         contrast = abs(text_lum - canvas_lum)
         if contrast < 50:
-            # Low contrast — draw a subtle outline for readability
             outline_color = (0, 0, 0) if canvas_lum > 128 else (255, 255, 255)
             for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
                 draw.text((panel_x + dx, y + dy), label_text, fill=outline_color, font=font_panel)
 
-        # Draw label text
         draw.text((panel_x, y), label_text, fill=text_color, font=font_panel)
-
-        # Measure label width to position swatch after it
         bbox = draw.textbbox((panel_x, y), label_text, font=font_panel)
         label_end_x = bbox[2] + 16
-
-        # Draw color swatch
         swatch_y = y + 4
         draw.rectangle(
             [label_end_x, swatch_y, label_end_x + swatch_size, swatch_y + swatch_size],
             fill=rgb_val, outline=None
         )
-
-        # Draw RGB value text
         rgb_text = f"  {rgb_val[0]},{rgb_val[1]},{rgb_val[2]}"
         value_x = label_end_x + swatch_size + 4
         if contrast < 50:
@@ -300,8 +449,340 @@ def generate_output_image(img, colors, output_path):
                 draw.text((value_x + dx, y + dy), rgb_text, fill=outline_color, font=font_panel)
         draw.text((value_x, y), rgb_text, fill=text_color, font=font_panel)
 
-    # Save
     canvas.save(output_path, "PNG")
+    return output_path
+
+
+def generate_results_image(img, colors, tech_checks, visual_checks,
+                           overall_status, overall_description, output_path):
+    """
+    Generate the full Card Art Checker Results image as a single PNG page.
+
+    Layout (top to bottom):
+    1. Card Art Review Pane — card with numbered markers + color panel on right
+    2. Overall Status — status badge + description
+    3. Technical Specifications table
+    4. Visual Design Compliance table (with Ref column linking to markers)
+
+    Args:
+        img: PIL Image of the card art
+        colors: dict from extract_colors() with background/foreground/label
+        tech_checks: dict from check_image()['checks'] with dimensions/file_format/dpi
+        visual_checks: list of dicts, each with:
+            'name': str — check name
+            'result': 'pass'|'fail'|'warning'
+            'notes': str (optional)
+            'marker_x': float 0.0-1.0 (optional — horizontal position on card)
+            'marker_y': float 0.0-1.0 (optional — vertical position on card)
+        overall_status: str — 'APPROVED', 'REQUIRES CHANGES', or 'APPROVED WITH NOTES'
+        overall_description: str — summary text
+        output_path: str — path to save the PNG
+    """
+    card_w, card_h = img.size
+    quiet_zone = VISA_MARK_EDGE_MARGIN
+
+    bg_rgb = tuple(colors["background"]["rgb"])
+    fg_rgb = tuple(colors["foreground"]["rgb"])
+    label_rgb = tuple(colors["label"]["rgb"])
+
+    # --- Fonts ---
+    font_section = _load_font(28, bold=True)
+    font_status = _load_font(30, bold=True)
+    font_desc = _load_font(20)
+    font_table_header = _load_font(18, bold=True)
+    font_table_cell = _load_font(17)
+    font_marker_num = _load_font(16, bold=True)
+    font_card_marker = _load_font(36, bold=True)
+    font_panel = _load_font(32, bold=True)
+    font_pan = _load_font(88, bold=True)
+    font_legend = _load_font(15)
+
+    # --- Identify markers (location-based warnings/failures) ---
+    markers = []
+    for vc in visual_checks:
+        if vc.get("marker_x") is not None and vc.get("marker_y") is not None:
+            if vc["result"] in ("fail", "warning"):
+                markers.append(vc)
+    # Assign sequential numbers
+    for i, m in enumerate(markers):
+        m["_marker_num"] = i + 1
+
+    # --- Layout dimensions ---
+    padding = 50
+    section_gap = 30
+    right_panel_w = 500
+    card_section_w = padding + card_w + padding + right_panel_w + padding
+    content_w = card_section_w - 2 * padding  # width for tables
+    canvas_w = card_section_w
+
+    # Card section height
+    card_section_h = padding + card_h + padding
+
+    # Overall status section height (estimate — will wrap description)
+    # We'll compute this after we know the canvas width
+    status_title_h = 36
+    status_badge_h = 44
+    # Estimate description lines
+    desc_max_w = content_w - 40
+    desc_line_h = 28
+    # Temporary draw for text measurement
+    _tmp = Image.new("RGB", (1, 1))
+    _tmp_draw = ImageDraw.Draw(_tmp)
+    desc_lines = _wrap_text(_tmp_draw, overall_description, font_desc, desc_max_w)
+    status_desc_h = len(desc_lines) * desc_line_h
+    status_section_h = status_title_h + 12 + status_badge_h + 16 + status_desc_h + 20
+
+    # Tech spec table height
+    tech_row_h = 42
+    tech_table_title_h = 40
+    tech_table_rows = len(tech_checks)
+    tech_section_h = tech_table_title_h + 10 + (tech_table_rows + 1) * tech_row_h + 10
+
+    # Visual design table height
+    vis_row_h = 42
+    vis_table_title_h = 40
+    vis_table_rows = len(visual_checks)
+    vis_legend_h = 30 if markers else 0
+    vis_section_h = vis_table_title_h + 10 + (vis_table_rows + 1) * vis_row_h + 10 + vis_legend_h
+
+    canvas_h = (card_section_h + section_gap +
+                status_section_h + section_gap +
+                tech_section_h + section_gap +
+                vis_section_h + padding)
+
+    # --- Canvas background ---
+    canvas_bg = (240, 242, 246)
+    canvas = Image.new("RGB", (canvas_w, canvas_h), canvas_bg)
+    draw = ImageDraw.Draw(canvas)
+
+    # =====================================================================
+    # SECTION 1: Card Art Review Pane
+    # =====================================================================
+    card_x = padding
+    card_y = padding
+
+    # Card background panel (slight shadow effect)
+    panel_rect = [padding - 6, padding - 6,
+                  padding + card_w + padding + right_panel_w + 6,
+                  padding + card_h + 6]
+    draw.rectangle(panel_rect, fill=(255, 255, 255), outline=(220, 222, 228))
+
+    # Paste card image
+    card_rgb = img.convert("RGB")
+    canvas.paste(card_rgb, (card_x, card_y))
+
+    # Draw 56px quiet zone as red dashed rectangle
+    quiet_rect = [
+        card_x + quiet_zone, card_y + quiet_zone,
+        card_x + card_w - quiet_zone, card_y + card_h - quiet_zone,
+    ]
+    _draw_dashed_rect(draw, quiet_rect, color=(255, 0, 0), width=3, dash_len=18, gap_len=12)
+
+    # Sample PAN overlay
+    pan_text = "\u2022\u2022\u2022\u2022 6789"
+    pan_x = card_x + quiet_zone + 10
+    pan_y = card_y + card_h - quiet_zone - 110
+    draw.text((pan_x, pan_y), pan_text, fill=fg_rgb, font=font_pan)
+
+    # --- Draw markers on the card ---
+    for m in markers:
+        mx = card_x + int(m["marker_x"] * card_w)
+        my = card_y + int(m["marker_y"] * card_h)
+        _draw_marker(draw, mx, my, m["_marker_num"], m["result"], font_card_marker, size=68)
+
+    # --- Color panel (right of card) ---
+    swatch_size = 36
+    line_spacing = 82
+    num_entries = 3
+    total_panel_height = num_entries * line_spacing - (line_spacing - 36)
+    cpanel_x = card_x + card_w + padding + 10
+    cpanel_y = card_y + (card_h - total_panel_height) // 2
+
+    color_entries = [
+        ("Background:", bg_rgb),
+        ("Foreground:", fg_rgb),
+        ("Label:", label_rgb),
+    ]
+
+    for i, (lbl, rgb_val) in enumerate(color_entries):
+        cy = cpanel_y + i * line_spacing
+        text_color = rgb_val
+
+        # Ensure readability against canvas panel (white)
+        text_lum = 0.299 * rgb_val[0] + 0.587 * rgb_val[1] + 0.114 * rgb_val[2]
+        if text_lum > 200:
+            outline_color = (100, 100, 100)
+            for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                draw.text((cpanel_x + dx, cy + dy), lbl, fill=outline_color, font=font_panel)
+
+        draw.text((cpanel_x, cy), lbl, fill=text_color, font=font_panel)
+        bbox = draw.textbbox((cpanel_x, cy), lbl, font=font_panel)
+        label_end_x = bbox[2] + 12
+
+        # Swatch
+        swatch_y = cy + 6
+        draw.rectangle([label_end_x, swatch_y,
+                        label_end_x + swatch_size, swatch_y + swatch_size],
+                       fill=rgb_val, outline=(180, 180, 180))
+
+        # RGB value
+        rgb_text = f" {rgb_val[0]},{rgb_val[1]},{rgb_val[2]}"
+        value_x = label_end_x + swatch_size + 4
+        if text_lum > 200:
+            for dx, dy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                draw.text((value_x + dx, cy + dy), rgb_text, fill=outline_color, font=font_panel)
+        draw.text((value_x, cy), rgb_text, fill=text_color, font=font_panel)
+
+    current_y = card_section_h + section_gap
+
+    # =====================================================================
+    # SECTION 2: Overall Status
+    # =====================================================================
+    # Section background
+    status_rect = [padding, current_y,
+                   canvas_w - padding, current_y + status_section_h]
+    draw.rectangle(status_rect, fill=(255, 255, 255), outline=(220, 222, 228))
+
+    sx = padding + 24
+    sy = current_y + 16
+
+    draw.text((sx, sy), "OVERALL STATUS", fill=(38, 42, 52), font=font_section)
+    sy += status_title_h + 8
+
+    # Status badge
+    status_upper = overall_status.upper()
+    if "APPROVED" in status_upper and "NOTES" in status_upper:
+        badge_color = COLOR_WARNING
+        badge_text = "APPROVED WITH NOTES"
+    elif "APPROVED" in status_upper:
+        badge_color = COLOR_PASS
+        badge_text = "APPROVED"
+    else:
+        badge_color = COLOR_FAIL
+        badge_text = "REQUIRES CHANGES"
+
+    badge_bbox = draw.textbbox((0, 0), badge_text, font=font_status)
+    badge_w = badge_bbox[2] - badge_bbox[0] + 32
+    badge_h = badge_bbox[3] - badge_bbox[1] + 16
+    draw.rectangle([sx, sy, sx + badge_w, sy + badge_h],
+                   fill=badge_color)
+    draw.text((sx + 16, sy + 6), badge_text, fill=(255, 255, 255), font=font_status)
+    sy += badge_h + 16
+
+    # Description text (wrapped)
+    for line in desc_lines:
+        draw.text((sx, sy), line, fill=(60, 64, 72), font=font_desc)
+        sy += desc_line_h
+
+    current_y += status_section_h + section_gap
+
+    # =====================================================================
+    # SECTION 3: Technical Specifications Table
+    # =====================================================================
+    tech_bg_rect = [padding, current_y,
+                    canvas_w - padding, current_y + tech_section_h]
+    draw.rectangle(tech_bg_rect, fill=(255, 255, 255), outline=(220, 222, 228))
+
+    tx = padding + 24
+    ty = current_y + 14
+    draw.text((tx, ty), "TECHNICAL SPECIFICATIONS", fill=(38, 42, 52), font=font_section)
+    ty += tech_table_title_h
+
+    # Build tech spec rows
+    tech_headers = ["Check", "Result", "Detail"]
+    tech_rows_data = []
+
+    check_order = ["dimensions", "file_format", "dpi"]
+    check_labels = {
+        "dimensions": "Dimensions (1536x969 px)",
+        "file_format": "File Format (PNG)",
+        "dpi": "DPI (>= 72 for digital)",
+    }
+
+    for key in check_order:
+        if key not in tech_checks:
+            continue
+        ck = tech_checks[key]
+        passed = ck.get("passed", False)
+        status = "pass" if passed else "fail"
+        label = STATUS_LABELS[status]
+        detail = ck.get("actual", "")
+        if ck.get("note"):
+            detail = ck["note"] if len(ck["note"]) < 80 else ck["actual"]
+
+        tech_rows_data.append({
+            "cells": [check_labels.get(key, key), label, detail],
+            "status": status,
+        })
+
+    table_x = padding + 20
+    table_w = content_w - 40
+    _draw_table(draw, table_x, ty, table_w,
+                tech_headers, tech_rows_data,
+                col_ratios=[0.28, 0.12, 0.60],
+                fonts={'header': font_table_header, 'cell': font_table_cell,
+                       'marker': font_marker_num},
+                row_height=tech_row_h)
+
+    current_y += tech_section_h + section_gap
+
+    # =====================================================================
+    # SECTION 4: Visual Design Compliance Table
+    # =====================================================================
+    vis_bg_rect = [padding, current_y,
+                   canvas_w - padding, current_y + vis_section_h]
+    draw.rectangle(vis_bg_rect, fill=(255, 255, 255), outline=(220, 222, 228))
+
+    vx = padding + 24
+    vy = current_y + 14
+    draw.text((vx, vy), "VISUAL DESIGN COMPLIANCE", fill=(38, 42, 52), font=font_section)
+    vy += vis_table_title_h
+
+    # Build visual check rows
+    vis_headers = ["Ref", "Check", "Result", "Notes"]
+    vis_rows_data = []
+
+    # Map marker numbers
+    marker_lookup = {}
+    for m in markers:
+        for vi, vc in enumerate(visual_checks):
+            if (vc.get("marker_x") == m.get("marker_x") and
+                    vc.get("marker_y") == m.get("marker_y") and
+                    vc.get("name") == m.get("name")):
+                marker_lookup[vi] = m["_marker_num"]
+
+    for vi, vc in enumerate(visual_checks):
+        status = vc.get("result", "pass")
+        label = STATUS_LABELS.get(status, "PASS")
+        notes = vc.get("notes", "")
+        mnum = marker_lookup.get(vi)
+
+        vis_rows_data.append({
+            "cells": ["", vc["name"], label, notes],
+            "status": status,
+            "marker_num": mnum,
+        })
+
+    _draw_table(draw, table_x, vy, table_w,
+                vis_headers, vis_rows_data,
+                col_ratios=[0.05, 0.42, 0.10, 0.43],
+                fonts={'header': font_table_header, 'cell': font_table_cell,
+                       'marker': font_marker_num},
+                row_height=vis_row_h)
+
+    # Legend note if markers exist
+    if markers:
+        legend_y = vy + (len(visual_checks) + 1) * vis_row_h + 8
+        legend_text = "Numbered markers on the card art above correspond to the Ref column in this table."
+        draw.text((table_x + 8, legend_y), legend_text,
+                  fill=(100, 104, 112), font=font_legend)
+
+    # Save
+    # Save as PDF
+    if output_path.lower().endswith(".pdf"):
+        canvas.save(output_path, "PDF", resolution=150)
+    else:
+        canvas.save(output_path, "PNG")
     return output_path
 
 
@@ -346,7 +827,7 @@ def check_image(image_path: str, output_dir: str = None) -> dict:
         "actual": f"{calculated_dpi} DPI (calculated)",
         "required": f">= {MIN_DPI_DIGITAL} DPI for digital display (Visa spec)",
         "note": (
-            f"Calculated from image width: {w}px ÷ {CARD_WIDTH_INCHES}\" = {calculated_dpi} DPI. "
+            f"Calculated from image width: {w}px / {CARD_WIDTH_INCHES}\" = {calculated_dpi} DPI. "
             + ("Meets Visa digital display requirement." if dpi_ok
                else f"Below Visa minimum of {MIN_DPI_DIGITAL} DPI. A wider source image is needed.")
         )
@@ -360,7 +841,7 @@ def check_image(image_path: str, output_dir: str = None) -> dict:
         results["errors"].append(f"Color extraction failed: {e}")
         colors = None
 
-    # --- Generate Output Image ---
+    # --- Generate Basic Review Image ---
     if colors:
         try:
             if output_dir:
@@ -383,9 +864,48 @@ def main():
     parser = argparse.ArgumentParser(description="Check virtual card art technical specs")
     parser.add_argument("image_path", help="Path to the card art image")
     parser.add_argument("--output-dir", help="Directory to save the output review image", default=None)
+    parser.add_argument("--visual-results", help="JSON string with visual inspection results", default=None)
+    parser.add_argument("--visual-results-file", help="Path to JSON file with visual inspection results", default=None)
     args = parser.parse_args()
 
+    # Always run tech checks first
     result = check_image(args.image_path, args.output_dir)
+
+    # If visual results provided, generate the full results image
+    visual_data = None
+    if args.visual_results:
+        visual_data = json.loads(args.visual_results)
+    elif args.visual_results_file:
+        with open(args.visual_results_file, "r") as f:
+            visual_data = json.load(f)
+
+    if visual_data:
+        try:
+            img = Image.open(args.image_path)
+            colors = result.get("colors", {})
+            if not colors:
+                colors = extract_colors(img)
+
+            tech_checks = result.get("checks", {})
+            visual_checks = visual_data.get("visual_checks", [])
+            overall_status = visual_data.get("overall_status", "REQUIRES CHANGES")
+            overall_description = visual_data.get("overall_description", "")
+
+            if args.output_dir:
+                os.makedirs(args.output_dir, exist_ok=True)
+                out_dir = args.output_dir
+            else:
+                out_dir = os.path.dirname(os.path.abspath(args.image_path))
+
+            base_name = os.path.splitext(os.path.basename(args.image_path))[0]
+            results_path = os.path.join(out_dir, f"{base_name}_card_art_checker_results.pdf")
+            generate_results_image(img, colors, tech_checks, visual_checks,
+                                   overall_status, overall_description, results_path)
+            result["results_image"] = results_path
+            print(f"Results image saved to: {results_path}", file=sys.stderr)
+        except Exception as e:
+            result["errors"].append(f"Results image generation failed: {e}")
+
     print(json.dumps(result, indent=2))
 
 

@@ -29,10 +29,12 @@ When a user shares a card art image (or multiple images), you will:
 1. **Locate or download the image file** so you can run technical checks on it
 2. **Run the technical spec checker** (Python script — fast, objective)
 3. **Visually inspect the image** using your vision capabilities
-4. **Produce a structured compliance report** with a clear pass/fail for every check
-5. **Show the generated output image** to the user — it includes the 56px bleed border,
-   suggested RGB fallback colors, and a sample last-4 PAN overlay
-6. **Present the suggested RGB fallback colors** (background, foreground, label)
+4. **Review the suggested RGB fallback colors** (background, foreground, label)
+5. **Generate the Card Art Checker Results image** — a single-page PNG with the card art,
+   numbered location markers for warnings/failures, overall status, tech spec table, and
+   visual design compliance table — output as a single-page PDF
+6. **Show the results image** to the user
+7. **Produce a structured compliance report** with a clear pass/fail for every check
 
 Do this even if the user says "quick check" or seems to want a brief review — the full checklist
 is important and shouldn't be skipped. A card that fails compliance can delay an issuer's launch.
@@ -233,7 +235,6 @@ significantly smaller or larger than either option, flag it as ❌ Fail.
 - [ ] **Cardholder name**: no name on the card
 - [ ] **Full PAN / card number**: no card number digits
 - [ ] **Expiry date**: no expiry date
-- [ ] **3D / embossed effects**: the design should look flat and digital, not like a photograph of a card
 - [ ] **Physical card photography**: no photograph or highly detailed realistic illustration of a physical card
 - [ ] **Embossed attribute labels**: no text labels describing embossed-only features
 - [ ] **Lower-left area clear**: the lower-left area of the card is reserved for card personalization (last 4 PAN digits overlay) and **must not contain any marks or graphics** — this includes issuer logos, brand names, icons, design elements, or any other visual content. If anything other than the card background/pattern is in the lower-left, flag as ❌ Fail. Example: an issuer logo placed in the bottom-left corner would fail this check.
@@ -280,21 +281,133 @@ in the report if your visual judgment produces a better match.
 
 ---
 
-## Step 5: Show the output image
+## Step 5: Generate the Card Art Checker Results image
 
-The spec checker generates an output review image (`<filename>_review.png`). **Always show this
-image to the user** using the Read tool. The image contains:
+After completing the visual inspection (Step 3) and reviewing the colors (Step 4), generate the
+full results image. This combines everything — the card art with location markers, overall status,
+tech spec table, and visual design compliance table — into a single-page PDF.
 
-- The card art displayed with a visible **56px bleed border** around it
-- A sample **"•••• 6789" PAN** overlaid in the bottom-left of the card using the suggested foreground color
-- **Three RGB color values** (Background, Foreground, Label) displayed to the right of the card
-  with color swatches
+### 5a) Construct the visual results JSON
 
-This gives the issuer a visual reference for how the fallback colors and PAN digits will look.
+Build a JSON object from your visual inspection findings. The structure is:
+
+```json
+{
+  "overall_status": "APPROVED | REQUIRES CHANGES | APPROVED WITH NOTES",
+  "overall_description": "1-2 sentence summary of findings and what needs fixing",
+  "visual_checks": [
+    {
+      "name": "Check name (from Step 3 checklist)",
+      "result": "pass | fail | warning",
+      "notes": "Brief explanation (optional for passes)"
+    }
+  ]
+}
+```
+
+**Location-based markers**: For any failure or warning where a **specific location on the card**
+caused the issue, add `marker_x` and `marker_y` fields (floats from 0.0 to 1.0) to place a
+numbered marker on the card art. These fields are **only for location-specific issues** — not
+every failure gets a marker.
+
+- `marker_x`: 0.0 = left edge, 1.0 = right edge of card
+- `marker_y`: 0.0 = top edge, 1.0 = bottom edge of card
+- Place the marker at the approximate center of where the issue occurs
+
+Examples of checks that **should** get markers:
+- Visa Brand Mark contrast → marker at the Visa logo position
+- Visa Brand Mark margin → marker at the edge where margin is insufficient
+- Lower-left area not clear → marker at the offending element in the lower-left
+- Design elements near product identifier → marker where elements encroach
+
+Examples of checks that should **NOT** get markers:
+- Landscape orientation (global, not location-specific)
+- Full color / grayscale (global)
+- No cardholder name (absence check — nowhere specific to point)
+- File format / dimensions / DPI (technical, not visual location)
+
+```json
+{
+  "name": "Visa Brand Mark contrast",
+  "result": "fail",
+  "notes": "Silver text on pink background — low contrast",
+  "marker_x": 0.75,
+  "marker_y": 0.12
+}
+```
+
+Each marker gets an auto-assigned number (1, 2, 3, ...) that appears both on the card and in
+the Ref column of the Visual Design Compliance table, creating a visual legend.
+
+### 5b) Save the JSON and call the script
+
+Save the visual results JSON to a temp file, then call the script with `--visual-results-file`:
+
+```python
+import json, glob, subprocess, sys
+
+visual_results = {
+    "overall_status": "...",       # from your assessment
+    "overall_description": "...",  # from your assessment
+    "visual_checks": [ ... ]       # from your Step 3 inspection
+}
+
+# Save to temp file
+results_json_path = "/tmp/visual_results.json"
+with open(results_json_path, "w") as f:
+    json.dump(visual_results, f)
+
+# Find the script
+scripts = glob.glob('/sessions/*/virtual-card-art-checker/scripts/check_technical_specs.py')
+if not scripts:
+    scripts = glob.glob('/sessions/*/virtual-card-art-checker-extracted/virtual-card-art-checker/scripts/check_technical_specs.py')
+
+if scripts:
+    script_path = scripts[0]
+    result = subprocess.run(
+        [sys.executable, script_path, "<path-to-image>",
+         "--visual-results-file", results_json_path],
+        capture_output=True, text=True
+    )
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr)
+```
+
+This generates `<filename>_card_art_checker_results.pdf` in the same directory as the input image.
 
 ---
 
-## Step 6: Produce the compliance report
+## Step 6: Show the results image
+
+The script generates a **Card Art Checker Results** image (`<filename>_card_art_checker_results.pdf`).
+**Always show this image to the user** using the Read tool. The single-page PNG contains:
+
+1. **Card Art Review Pane** (top) — the card art with:
+   - The 56px bleed border (red dashed line)
+   - Sample "•••• 6789" PAN in the suggested foreground color
+   - **Numbered markers** (colored circles) at exact locations where warnings/failures occur
+   - RGB fallback color values displayed to the right with swatches
+
+2. **Overall Status** — colored badge (green/red/orange) with summary description
+
+3. **Technical Specifications** table — dimensions, format, DPI with pass/fail status
+
+4. **Visual Design Compliance** table — all visual checks with:
+   - **Ref column**: numbered markers matching those on the card art above
+   - Check name, result (colored PASS/FAIL/WARN), and notes
+   - Legend note linking the Ref numbers to the card markers
+
+This gives the issuer a complete, self-contained compliance document.
+
+After presenting the results, **always offer to open the PDF** for the user:
+> "Would you like me to open the results PDF?"
+
+If the user accepts, open it with: `open -a Preview "<path_to_results.pdf>"`
+
+---
+
+## Step 7: Produce the compliance report
 
 Output a report in this exact format. Be direct — issuers need to know exactly what to fix.
 
@@ -333,7 +446,6 @@ Output a report in this exact format. Be direct — issuers need to know exactly
 | No cardholder name | ✅ / ❌ | |
 | No PAN / card number | ✅ / ❌ | |
 | No expiry date | ✅ / ❌ | |
-| No 3D / embossed effects | ✅ / ❌ | |
 | No physical card photography | ✅ / ❌ | |
 | Lower-left area clear (no marks/graphics) | ✅ / ❌ | Reserved for card personalization — must be completely empty |
 | Design elements clear of product identifier | ✅ / ❌ | No artwork touching Signature/Platinum/Infinite text |
@@ -356,7 +468,7 @@ fallbacks when the card image cannot render due to low bandwidth or connectivity
 > ⚠️ These colors are suggested based on analyzing the card design. Please confirm with your
 > designer that they match the intended brand colors before submitting.
 
-**Output image**: `[path to _review.png]` — shows the bleed border, sample PAN, and color values.
+**Results image**: `[path to _card_art_checker_results.pdf]` — full results with markers, tables, and status.
 
 ---
 

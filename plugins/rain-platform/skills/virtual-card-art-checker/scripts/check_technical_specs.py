@@ -271,7 +271,30 @@ def _truncate_text(draw, text, font, max_width):
     return text
 
 
-def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts, row_height=42):
+def _measure_table_height(draw, headers, rows, col_ratios, width, fonts,
+                          row_height=52, wrap_last_col=False):
+    """Pre-measure total table height (header + all data rows)."""
+    cell_pad_x = 16
+    cell_pad_y = 14
+    col_widths = [int(r * width) for r in col_ratios]
+    col_widths[-1] = width - sum(col_widths[:-1])
+    last_col = len(headers) - 1
+    line_h = fonts['cell'].size + 6
+    total = row_height  # header row
+    for row in rows:
+        cells = row['cells']
+        if wrap_last_col and last_col < len(cells):
+            max_text_w = col_widths[last_col] - 2 * cell_pad_x
+            lines = _wrap_text(draw, cells[last_col], fonts['cell'], max_text_w)
+            needed = len(lines) * line_h + 2 * cell_pad_y
+            total += max(row_height, needed)
+        else:
+            total += row_height
+    return total
+
+
+def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts,
+                row_height=52, wrap_last_col=False):
     """
     Draw a table on the canvas. Returns total height consumed.
 
@@ -282,26 +305,50 @@ def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts, row_height=
         'marker_num': int or None (for Ref column marker indicator)
     col_ratios: list of floats summing to ~1.0
     fonts: dict with 'header' and 'cell' ImageFont objects
+    wrap_last_col: if True, wrap text in the last column instead of truncating
     """
-    header_bg = (38, 42, 52)
+    header_bg = (30, 34, 44)
     header_fg = (255, 255, 255)
-    row_bg_even = (248, 249, 252)
+    row_bg_even = (246, 247, 252)
     row_bg_odd = (255, 255, 255)
-    border_color = (210, 215, 222)
-    text_color_default = (40, 44, 52)
+    border_color = (220, 224, 232)
+    text_color_default = (24, 28, 38)
+    cell_pad_x = 16
+    cell_pad_y = 14
 
     # Compute pixel widths for columns
     col_widths = [int(r * width) for r in col_ratios]
     col_widths[-1] = width - sum(col_widths[:-1])  # fill remainder
 
+    # Pre-compute row heights for text wrapping
+    last_col = len(headers) - 1
+    line_h = fonts['cell'].size + 6
+    row_heights = []
+    wrapped_texts = []
+
+    for row in rows:
+        cells = row['cells']
+        if wrap_last_col and last_col < len(cells):
+            max_text_w = col_widths[last_col] - 2 * cell_pad_x
+            lines = _wrap_text(draw, cells[last_col], fonts['cell'], max_text_w)
+            needed = len(lines) * line_h + 2 * cell_pad_y
+            row_heights.append(max(row_height, needed))
+            wrapped_texts.append(lines)
+        else:
+            row_heights.append(row_height)
+            wrapped_texts.append(None)
+
     current_y = y
 
-    # --- Header row ---
+    # --- Header row (vertically centered text) ---
     hx = x
+    hdr_bbox = draw.textbbox((0, 0), "Ag", font=fonts['header'])
+    hdr_text_h = hdr_bbox[3] - hdr_bbox[1]
+    hdr_text_y = current_y + (row_height - hdr_text_h) // 2
     for header_text, cw in zip(headers, col_widths):
         draw.rectangle([hx, current_y, hx + cw, current_y + row_height],
                        fill=header_bg, outline=border_color)
-        draw.text((hx + 12, current_y + 10), header_text,
+        draw.text((hx + cell_pad_x, hdr_text_y), header_text,
                   fill=header_fg, font=fonts['header'])
         hx += cw
     current_y += row_height
@@ -312,10 +359,12 @@ def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts, row_height=
         cells = row['cells']
         status = row.get('status', 'pass')
         marker_num = row.get('marker_num')
+        rh = row_heights[ri]
+        wrapped = wrapped_texts[ri]
 
         rx = x
         for ci, (cell_text, cw) in enumerate(zip(cells, col_widths)):
-            draw.rectangle([rx, current_y, rx + cw, current_y + row_height],
+            draw.rectangle([rx, current_y, rx + cw, current_y + rh],
                            fill=bg, outline=border_color)
 
             cell_color = text_color_default
@@ -324,9 +373,9 @@ def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts, row_height=
             # Ref column (first column): draw marker indicator if present
             if ci == 0 and marker_num is not None:
                 marker_color = STATUS_COLORS.get(status, COLOR_UNVERIFIED)
-                dot_r = 13
+                dot_r = 14
                 dot_cx = rx + cw // 2
-                dot_cy = current_y + row_height // 2
+                dot_cy = current_y + rh // 2
                 draw.ellipse([dot_cx - dot_r, dot_cy - dot_r,
                               dot_cx + dot_r, dot_cy + dot_r],
                              fill=marker_color)
@@ -338,9 +387,9 @@ def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts, row_height=
                 rx += cw
                 continue
 
-            # Result column: color text by status
-            if ci == len(cells) - 2 or (len(headers) == 3 and ci == 1):
-                # Heuristic: the "Result" column — color it
+            # Result column: color text by status + center horizontally
+            is_result_col = (ci == len(cells) - 2 or (len(headers) == 3 and ci == 1))
+            if is_result_col:
                 if "PASS" in cell_text.upper():
                     cell_color = COLOR_PASS
                     cell_font = fonts['header']  # bold
@@ -354,12 +403,32 @@ def _draw_table(draw, x, y, width, headers, rows, col_ratios, fonts, row_height=
                     cell_color = COLOR_ESTIMATED
                     cell_font = fonts['header']
 
-            # Truncate text to fit column
-            display = _truncate_text(draw, cell_text, cell_font, cw - 24)
-            draw.text((rx + 12, current_y + 10), display,
-                      fill=cell_color, font=cell_font)
+            # Last column with wrapping enabled
+            if ci == last_col and wrapped is not None:
+                ty = current_y + cell_pad_y
+                for line in wrapped:
+                    draw.text((rx + cell_pad_x, ty), line,
+                              fill=cell_color, font=cell_font)
+                    ty += line_h
+            elif is_result_col:
+                # Center Result column text horizontally and vertically
+                txt_bbox = draw.textbbox((0, 0), cell_text or " ", font=cell_font)
+                txt_w = txt_bbox[2] - txt_bbox[0]
+                txt_h = txt_bbox[3] - txt_bbox[1]
+                text_x = rx + (cw - txt_w) // 2
+                text_y = current_y + (rh - txt_h) // 2
+                draw.text((text_x, text_y), cell_text,
+                          fill=cell_color, font=cell_font)
+            else:
+                # Vertically center single-line text
+                txt_bbox = draw.textbbox((0, 0), cell_text or " ", font=cell_font)
+                txt_h = txt_bbox[3] - txt_bbox[1]
+                text_y = current_y + (rh - txt_h) // 2
+                display = _truncate_text(draw, cell_text, cell_font, cw - 2 * cell_pad_x)
+                draw.text((rx + cell_pad_x, text_y), display,
+                          fill=cell_color, font=cell_font)
             rx += cw
-        current_y += row_height
+        current_y += rh
 
     return current_y - y
 
@@ -486,16 +555,16 @@ def generate_results_image(img, colors, tech_checks, visual_checks,
     label_rgb = tuple(colors["label"]["rgb"])
 
     # --- Fonts ---
-    font_section = _load_font(28, bold=True)
-    font_status = _load_font(30, bold=True)
-    font_desc = _load_font(20)
-    font_table_header = _load_font(18, bold=True)
-    font_table_cell = _load_font(17)
-    font_marker_num = _load_font(16, bold=True)
+    font_section = _load_font(34, bold=True)
+    font_status = _load_font(36, bold=True)
+    font_desc = _load_font(26)
+    font_table_header = _load_font(22, bold=True)
+    font_table_cell = _load_font(20)
+    font_marker_num = _load_font(18, bold=True)
     font_card_marker = _load_font(36, bold=True)
     font_panel = _load_font(32, bold=True)
     font_pan = _load_font(88, bold=True)
-    font_legend = _load_font(15)
+    font_legend = _load_font(17)
 
     # --- Identify markers (location-based warnings/failures) ---
     markers = []
@@ -509,44 +578,94 @@ def generate_results_image(img, colors, tech_checks, visual_checks,
 
     # --- Layout dimensions ---
     padding = 50
-    section_gap = 30
+    section_gap = 36
+    section_pad = 28          # inner padding within white section cards
     right_panel_w = 500
     card_section_w = padding + card_w + padding + right_panel_w + padding
     content_w = card_section_w - 2 * padding  # width for tables
     canvas_w = card_section_w
+    table_x = padding + 24
+    table_w = content_w - 48
 
     # Card section height
     card_section_h = padding + card_h + padding
 
-    # Overall status section height (estimate — will wrap description)
-    # We'll compute this after we know the canvas width
-    status_title_h = 36
-    status_badge_h = 44
-    # Estimate description lines
-    desc_max_w = content_w - 40
-    desc_line_h = 28
+    # Overall status section height (badge is inline with title, not stacked)
+    status_title_h = 48
+    desc_max_w = content_w - 56
+    desc_line_h = 36
     # Temporary draw for text measurement
     _tmp = Image.new("RGB", (1, 1))
     _tmp_draw = ImageDraw.Draw(_tmp)
     desc_lines = _wrap_text(_tmp_draw, overall_description, font_desc, desc_max_w)
     status_desc_h = len(desc_lines) * desc_line_h
-    status_section_h = status_title_h + 12 + status_badge_h + 16 + status_desc_h + 20
+    status_section_h = status_title_h + 16 + status_desc_h + section_pad
 
-    # Tech spec table height
-    tech_row_h = 42
-    tech_table_title_h = 40
-    tech_table_rows = len(tech_checks)
-    tech_section_h = tech_table_title_h + 10 + (tech_table_rows + 1) * tech_row_h + 10
+    # Tech spec table — build row data early for height measurement
+    tech_row_h = 52
+    tech_table_title_h = 52
+    tech_headers = ["Check", "Result", "Detail"]
+    tech_col_ratios = [0.28, 0.12, 0.60]
+    tech_rows_data = []
+    check_order = ["dimensions", "file_format", "dpi"]
+    check_labels = {
+        "dimensions": "Dimensions (1536x969 px)",
+        "file_format": "File Format (PNG)",
+        "dpi": "DPI (>= 72 for digital)",
+    }
+    for key in check_order:
+        if key not in tech_checks:
+            continue
+        ck = tech_checks[key]
+        passed = ck.get("passed", False)
+        status = "pass" if passed else "fail"
+        label = STATUS_LABELS[status]
+        detail = ck.get("actual", "")
+        if ck.get("note"):
+            detail = ck["note"] if len(ck["note"]) < 80 else ck["actual"]
+        tech_rows_data.append({
+            "cells": [check_labels.get(key, key), label, detail],
+            "status": status,
+        })
+    table_fonts = {'header': font_table_header, 'cell': font_table_cell,
+                   'marker': font_marker_num}
+    tech_table_h = _measure_table_height(
+        _tmp_draw, tech_headers, tech_rows_data, tech_col_ratios,
+        table_w, table_fonts, row_height=tech_row_h)
+    tech_section_h = tech_table_title_h + 10 + tech_table_h + 16
 
-    # Visual design table height
-    vis_row_h = 42
-    vis_table_title_h = 40
-    vis_table_rows = len(visual_checks)
-    vis_legend_h = 30 if markers else 0
-    vis_section_h = vis_table_title_h + 10 + (vis_table_rows + 1) * vis_row_h + 10 + vis_legend_h
+    # Visual design table — build row data early for height measurement
+    vis_row_h = 52
+    vis_table_title_h = 52
+    vis_headers = ["Ref", "Check", "Result", "Notes"]
+    vis_col_ratios = [0.04, 0.36, 0.09, 0.51]
+    vis_rows_data = []
+    marker_lookup = {}
+    for m in markers:
+        for vi, vc in enumerate(visual_checks):
+            if (vc.get("marker_x") == m.get("marker_x") and
+                    vc.get("marker_y") == m.get("marker_y") and
+                    vc.get("name") == m.get("name")):
+                marker_lookup[vi] = m["_marker_num"]
+    for vi, vc in enumerate(visual_checks):
+        status = vc.get("result", "pass")
+        label = STATUS_LABELS.get(status, "PASS")
+        notes = vc.get("notes", "")
+        mnum = marker_lookup.get(vi)
+        vis_rows_data.append({
+            "cells": ["", vc["name"], label, notes],
+            "status": status,
+            "marker_num": mnum,
+        })
+    vis_table_h = _measure_table_height(
+        _tmp_draw, vis_headers, vis_rows_data, vis_col_ratios,
+        table_w, table_fonts, row_height=vis_row_h, wrap_last_col=True)
+    vis_legend_h = 36 if markers else 0
+    vis_section_h = vis_table_title_h + 10 + vis_table_h + 16 + vis_legend_h
 
-    canvas_h = (card_section_h + section_gap +
+    canvas_h = (padding +
                 status_section_h + section_gap +
+                card_section_h + section_gap +
                 tech_section_h + section_gap +
                 vis_section_h + padding)
 
@@ -556,15 +675,58 @@ def generate_results_image(img, colors, tech_checks, visual_checks,
     draw = ImageDraw.Draw(canvas)
 
     # =====================================================================
+    # SECTION 0: Art Checker Results (moved to top)
+    # =====================================================================
+    current_y = padding
+    status_rect = [padding, current_y,
+                   canvas_w - padding, current_y + status_section_h]
+    draw.rectangle(status_rect, fill=(255, 255, 255), outline=(220, 222, 228))
+
+    sx = padding + section_pad
+    sy = current_y + 20
+
+    # Section header (title case)
+    draw.text((sx, sy), "Art Checker Results", fill=(24, 28, 38), font=font_section)
+
+    # Status badge — top-right corner of section
+    status_upper = overall_status.upper()
+    if "APPROVED" in status_upper and "NOTES" in status_upper:
+        badge_color = COLOR_WARNING
+        badge_text = "APPROVED WITH NOTES"
+    elif "APPROVED" in status_upper:
+        badge_color = COLOR_PASS
+        badge_text = "APPROVED"
+    else:
+        badge_color = COLOR_FAIL
+        badge_text = "REQUIRES CHANGES"
+
+    badge_bbox = draw.textbbox((0, 0), badge_text, font=font_status)
+    badge_w = badge_bbox[2] - badge_bbox[0] + 40
+    badge_h = badge_bbox[3] - badge_bbox[1] + 22
+    badge_x = canvas_w - padding - section_pad - badge_w
+    badge_y = sy - 2
+    draw.rectangle([badge_x, badge_y, badge_x + badge_w, badge_y + badge_h],
+                   fill=badge_color)
+    draw.text((badge_x + 20, badge_y + 9), badge_text, fill=(255, 255, 255), font=font_status)
+    sy += status_title_h + 12
+
+    # Description text (wrapped) — high contrast
+    for line in desc_lines:
+        draw.text((sx, sy), line, fill=(28, 32, 42), font=font_desc)
+        sy += desc_line_h
+
+    current_y += status_section_h + section_gap
+
+    # =====================================================================
     # SECTION 1: Card Art Review Pane
     # =====================================================================
     card_x = padding
-    card_y = padding
+    card_y = current_y + padding
 
     # Card background panel (slight shadow effect)
-    panel_rect = [padding - 6, padding - 6,
-                  padding + card_w + padding + right_panel_w + 6,
-                  padding + card_h + 6]
+    panel_rect = [card_x - 6, card_y - 6,
+                  card_x + card_w + padding + right_panel_w + 6,
+                  card_y + card_h + 6]
     draw.rectangle(panel_rect, fill=(255, 255, 255), outline=(220, 222, 228))
 
     # Paste card image
@@ -633,95 +795,24 @@ def generate_results_image(img, colors, tech_checks, visual_checks,
                 draw.text((value_x + dx, cy + dy), rgb_text, fill=outline_color, font=font_panel)
         draw.text((value_x, cy), rgb_text, fill=text_color, font=font_panel)
 
-    current_y = card_section_h + section_gap
+    current_y = card_y + card_h + padding + section_gap
 
     # =====================================================================
-    # SECTION 2: Overall Status
-    # =====================================================================
-    # Section background
-    status_rect = [padding, current_y,
-                   canvas_w - padding, current_y + status_section_h]
-    draw.rectangle(status_rect, fill=(255, 255, 255), outline=(220, 222, 228))
-
-    sx = padding + 24
-    sy = current_y + 16
-
-    draw.text((sx, sy), "OVERALL STATUS", fill=(38, 42, 52), font=font_section)
-    sy += status_title_h + 8
-
-    # Status badge
-    status_upper = overall_status.upper()
-    if "APPROVED" in status_upper and "NOTES" in status_upper:
-        badge_color = COLOR_WARNING
-        badge_text = "APPROVED WITH NOTES"
-    elif "APPROVED" in status_upper:
-        badge_color = COLOR_PASS
-        badge_text = "APPROVED"
-    else:
-        badge_color = COLOR_FAIL
-        badge_text = "REQUIRES CHANGES"
-
-    badge_bbox = draw.textbbox((0, 0), badge_text, font=font_status)
-    badge_w = badge_bbox[2] - badge_bbox[0] + 32
-    badge_h = badge_bbox[3] - badge_bbox[1] + 16
-    draw.rectangle([sx, sy, sx + badge_w, sy + badge_h],
-                   fill=badge_color)
-    draw.text((sx + 16, sy + 6), badge_text, fill=(255, 255, 255), font=font_status)
-    sy += badge_h + 16
-
-    # Description text (wrapped)
-    for line in desc_lines:
-        draw.text((sx, sy), line, fill=(60, 64, 72), font=font_desc)
-        sy += desc_line_h
-
-    current_y += status_section_h + section_gap
-
-    # =====================================================================
-    # SECTION 3: Technical Specifications Table
+    # SECTION 3: Spec Check
     # =====================================================================
     tech_bg_rect = [padding, current_y,
                     canvas_w - padding, current_y + tech_section_h]
     draw.rectangle(tech_bg_rect, fill=(255, 255, 255), outline=(220, 222, 228))
 
-    tx = padding + 24
-    ty = current_y + 14
-    draw.text((tx, ty), "TECHNICAL SPECIFICATIONS", fill=(38, 42, 52), font=font_section)
+    tx = padding + section_pad
+    ty = current_y + 16
+    draw.text((tx, ty), "Spec Check", fill=(24, 28, 38), font=font_section)
     ty += tech_table_title_h
 
-    # Build tech spec rows
-    tech_headers = ["Check", "Result", "Detail"]
-    tech_rows_data = []
-
-    check_order = ["dimensions", "file_format", "dpi"]
-    check_labels = {
-        "dimensions": "Dimensions (1536x969 px)",
-        "file_format": "File Format (PNG)",
-        "dpi": "DPI (>= 72 for digital)",
-    }
-
-    for key in check_order:
-        if key not in tech_checks:
-            continue
-        ck = tech_checks[key]
-        passed = ck.get("passed", False)
-        status = "pass" if passed else "fail"
-        label = STATUS_LABELS[status]
-        detail = ck.get("actual", "")
-        if ck.get("note"):
-            detail = ck["note"] if len(ck["note"]) < 80 else ck["actual"]
-
-        tech_rows_data.append({
-            "cells": [check_labels.get(key, key), label, detail],
-            "status": status,
-        })
-
-    table_x = padding + 20
-    table_w = content_w - 40
     _draw_table(draw, table_x, ty, table_w,
                 tech_headers, tech_rows_data,
-                col_ratios=[0.28, 0.12, 0.60],
-                fonts={'header': font_table_header, 'cell': font_table_cell,
-                       'marker': font_marker_num},
+                col_ratios=tech_col_ratios,
+                fonts=table_fonts,
                 row_height=tech_row_h)
 
     current_y += tech_section_h + section_gap
@@ -733,52 +824,26 @@ def generate_results_image(img, colors, tech_checks, visual_checks,
                    canvas_w - padding, current_y + vis_section_h]
     draw.rectangle(vis_bg_rect, fill=(255, 255, 255), outline=(220, 222, 228))
 
-    vx = padding + 24
-    vy = current_y + 14
-    draw.text((vx, vy), "VISUAL DESIGN COMPLIANCE", fill=(38, 42, 52), font=font_section)
+    vx = padding + section_pad
+    vy = current_y + 16
+    draw.text((vx, vy), "Visual Check", fill=(24, 28, 38), font=font_section)
     vy += vis_table_title_h
-
-    # Build visual check rows
-    vis_headers = ["Ref", "Check", "Result", "Notes"]
-    vis_rows_data = []
-
-    # Map marker numbers
-    marker_lookup = {}
-    for m in markers:
-        for vi, vc in enumerate(visual_checks):
-            if (vc.get("marker_x") == m.get("marker_x") and
-                    vc.get("marker_y") == m.get("marker_y") and
-                    vc.get("name") == m.get("name")):
-                marker_lookup[vi] = m["_marker_num"]
-
-    for vi, vc in enumerate(visual_checks):
-        status = vc.get("result", "pass")
-        label = STATUS_LABELS.get(status, "PASS")
-        notes = vc.get("notes", "")
-        mnum = marker_lookup.get(vi)
-
-        vis_rows_data.append({
-            "cells": ["", vc["name"], label, notes],
-            "status": status,
-            "marker_num": mnum,
-        })
 
     _draw_table(draw, table_x, vy, table_w,
                 vis_headers, vis_rows_data,
-                col_ratios=[0.05, 0.42, 0.10, 0.43],
-                fonts={'header': font_table_header, 'cell': font_table_cell,
-                       'marker': font_marker_num},
-                row_height=vis_row_h)
+                col_ratios=vis_col_ratios,
+                fonts=table_fonts,
+                row_height=vis_row_h,
+                wrap_last_col=True)
 
     # Legend note if markers exist
     if markers:
-        legend_y = vy + (len(visual_checks) + 1) * vis_row_h + 8
+        legend_y = vy + vis_table_h + 8
         legend_text = "Numbered markers on the card art above correspond to the Ref column in this table."
         draw.text((table_x + 8, legend_y), legend_text,
-                  fill=(100, 104, 112), font=font_legend)
+                  fill=(80, 84, 96), font=font_legend)
 
-    # Save
-    # Save as PDF
+    # Save as PDF or PNG
     if output_path.lower().endswith(".pdf"):
         canvas.save(output_path, "PDF", resolution=150)
     else:

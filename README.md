@@ -71,7 +71,7 @@ Real estate assistant for buyer's agents — disclosure package summaries, MLS c
 
 ### [rain-platform](plugins/rain-platform)
 
-Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, and partner onboarding video review.
+Support operations toolkit for the Rain team — Pylon issue triage, virtual card art compliance checking, and partner onboarding video review.
 
 **Install:**
 ```
@@ -80,7 +80,7 @@ Support operations toolkit for the Rain team — Pylon issue triage, card art co
 
 **Skills:**
 - `triage-pylon-issues` — Fetches Pylon issues, classifies them to Horatio or Rain based on the support scope agreement, and tags them for routing
-- `card-art-checker` — Reviews virtual card art submissions against Visa Digital Card Brand Standards; validates technical specs, visual compliance, and extracts RGB fallback colors
+- `virtual-card-art-checker` — Reviews virtual/digital card art submissions against Visa Digital Card Brand Standards (Sept 2025); validates technical specs, visual compliance, extracts RGB fallback colors, and generates an output review image with bleed border and sample PAN overlay
 - `partner-video-review` — Analyzes partner sandbox onboarding screen recordings against Rain's compliance requirements; frame-extracts the video and produces a structured pass/fail report
 
 ---

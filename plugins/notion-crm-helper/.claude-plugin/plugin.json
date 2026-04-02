@@ -3,7 +3,8 @@
   "version": "0.2.0",
   "description": "Notion-powered CRM for managing contacts, opportunities, and activities — all managed conversationally through Claude.",
   "author": {
-    "name": "Beto Juarez"
+    "name": "Beto Juárez III",
+    "email": "betojuareziii@gmail.com"
   },
   "hooks": {
     "SessionStart": [

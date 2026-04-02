@@ -42,9 +42,8 @@ Notion-powered CRM for managing contacts, opportunities, and activities — all 
 ```
 
 **Skills:**
-- `/setup` — First-time configuration: creates 5 Notion databases (Contacts, Opportunities, Lists, Templates, Activities) and saves config to `.claude/settings.json`
-- `/crm-status` — Check system health and database record counts
-- `/crm-assistant` — Conversational CRM: manage contacts, pipeline, activities, and bulk imports from CSV or JSON
+- `/notion-crm-helper:setup` — First-time configuration: creates Notion databases (Contacts, Accounts, Opportunities) and saves config to `.claude/settings.json`
+- `/notion-crm-helper:crm-helper` — Conversational CRM: manage contacts, pipeline, activities, and bulk imports from CSV or JSON
 
 **Requirements:** Notion MCP connector (Claude Code will prompt for OAuth on first use)
 
@@ -65,6 +64,7 @@ Real estate assistant for buyer's agents — disclosure package summaries, MLS c
 - `/re-assistant:disclosure-package-summary` — Analyzes disclosure PDFs and produces a 13-section client-ready bullet summary
 - `/re-assistant:comparable-analysis` — Reviews MLS comps to determine market value relative to an offer price
 - `/re-assistant:offer-letter` — Drafts a concise agent-to-agent offer letter
+- `/re-assistant:offer-email` — Drafts a professional agent-to-agent offer email
 - `/re-assistant:setup` — Configure your agent profile
 
 ---

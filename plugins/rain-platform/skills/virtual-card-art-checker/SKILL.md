@@ -196,20 +196,48 @@ are easy to miss:
 
 ### ✅ Required elements (must be present)
 - [ ] **Visa Brand Mark**: clearly visible, legible, not distorted or stretched
-- [ ] **Visa Brand Mark position**: in the upper-left or upper-right corner of the card
-- [ ] **Visa Brand Mark margin**: appears to be ~56px (≈3.6% of card width) from nearest edges —
+- [ ] **Visa Brand Mark position**: in the **upper-left or upper-right** corner only — no lower-edge placement allowed
+- [ ] **Visa Brand Mark margin**: appears to be ~56px from nearest card edges —
       **this margin requirement applies ONLY to the Visa Brand Mark**, not to other logos or design elements
+- [ ] **Visa Brand Mark size**: must match one of the two allowed size options (see below)
 - [ ] **Issuer logo**: clearly present (may bleed to edge — no margin requirement)
+
+#### Visa Brand Mark Size Options
+
+Only two size options are permitted. Check which one is used and verify it matches:
+
+**Option One — Visa Brand Mark with Debit Identifier** (for Debit cards):
+| Measurement | Value | Description |
+|---|---|---|
+| C | 109 px | Height of Visa Brand Mark |
+| D | 56 px | Distance from nearest card edge to Visa Brand Mark |
+| E | 56 px | Distance from baseline of debit identifier to top of Visa Brand Mark |
+| F | 50 px | Minimum height of debit identifier |
+
+**Option Two — Visa Brand Mark (standalone or with Product Identifier)** (for Signature, Platinum, Infinite, etc.):
+| Measurement | Value | Description |
+|---|---|---|
+| C | 142 px | Height of Visa Brand Mark |
+| D | 220 px | Distance from top of Visa Brand Mark to baseline of product identifier (when present) |
+| E | 56 px | Distance from nearest card edge to Visa Brand Mark |
+
+When visually inspecting, estimate whether the Visa Brand Mark height appears to be approximately
+109px (Option One) or 142px (Option Two) relative to the card dimensions. The mark should be
+roughly **11.2%** (Option One) or **14.7%** (Option Two) of the card height (969px). If it looks
+significantly smaller or larger than either option, flag it as ❌ Fail.
 
 ### 🚫 Prohibited elements (must NOT be present)
 - [ ] **EMV chip graphic**: no chip contact image or chip artwork
 - [ ] **Hologram imagery**: no static hologram pictures, foil-style graphics, or dove hologram
+- [ ] **Magnetic stripe graphic**: no magnetic stripe imagery
 - [ ] **Cardholder name**: no name on the card
 - [ ] **Full PAN / card number**: no card number digits
 - [ ] **Expiry date**: no expiry date
 - [ ] **3D / embossed effects**: the design should look flat and digital, not like a photograph of a card
 - [ ] **Physical card photography**: no photograph or highly detailed realistic illustration of a physical card
 - [ ] **Embossed attribute labels**: no text labels describing embossed-only features
+- [ ] **Lower-left area clear**: the lower-left area of the card is reserved for card personalization (last 4 PAN digits overlay) and **must not contain any marks or graphics** — this includes issuer logos, brand names, icons, design elements, or any other visual content. If anything other than the card background/pattern is in the lower-left, flag as ❌ Fail. Example: an issuer logo placed in the bottom-left corner would fail this check.
+- [ ] **Design elements clear of product identifier**: no artwork, logos, or design elements obscuring or touching the Visa product identifier text (Signature, Platinum, Infinite, etc.)
 
 ### 📐 Layout & orientation
 - [ ] **Orientation**: horizontal (landscape) — **required** for Visa review submissions
@@ -218,6 +246,14 @@ are easy to miss:
 ### 🎨 Design quality
 - [ ] **Color**: appears to be full-color (not grayscale or monochrome)
 - [ ] **Legibility**: Visa Brand Mark and any text elements are legible at card size
+- [ ] **Visa Brand Mark contrast**: the Visa Brand Mark (including the product identifier text —
+      Signature, Platinum, Infinite, Debit, etc.) must have strong color contrast against the card's
+      background. Both the "VISA" wordmark AND the product identifier must be clearly readable.
+      Check that neither blends into or is hard to distinguish from the background color. Common
+      issues: gray/silver text on light backgrounds, dark text on dark backgrounds, or a product
+      identifier in a different color than the Visa wordmark that lacks sufficient contrast.
+      If the Visa Brand Mark or product identifier is hard to read against the card background,
+      flag as ❌ Fail and recommend using white or a higher-contrast color.
 
 ### ℹ️ Important: Bleed rules
 - The **56px margin requirement applies ONLY to the Visa Brand Mark**
@@ -286,16 +322,21 @@ Output a report in this exact format. Be direct — issuers need to know exactly
 | Check | Result | Notes |
 |-------|--------|-------|
 | Visa Brand Mark present | ✅ / ❌ | |
-| Visa Brand Mark position (upper-left or upper-right) | ✅ / ❌ | |
+| Visa Brand Mark position (upper-left or upper-right only) | ✅ / ❌ | No lower-edge placement allowed |
+| Visa Brand Mark size (Option One: 109px / Option Two: 142px height) | ✅ / ❌ / ⚠️ | Must match one of the two allowed size options |
 | Visa Brand Mark margin (~56px from edges) | ✅ / ❌ / ⚠️ | This requirement applies ONLY to the Visa Brand Mark |
+| Visa Brand Mark contrast against background | ✅ / ❌ | Both "VISA" and product identifier must be clearly readable |
 | Issuer logo present | ✅ / ❌ | May bleed to edge — no margin requirement |
 | No EMV chip graphic | ✅ / ❌ | |
 | No hologram imagery | ✅ / ❌ | |
+| No magnetic stripe graphic | ✅ / ❌ | |
 | No cardholder name | ✅ / ❌ | |
 | No PAN / card number | ✅ / ❌ | |
 | No expiry date | ✅ / ❌ | |
 | No 3D / embossed effects | ✅ / ❌ | |
 | No physical card photography | ✅ / ❌ | |
+| Lower-left area clear (no marks/graphics) | ✅ / ❌ | Reserved for card personalization — must be completely empty |
+| Design elements clear of product identifier | ✅ / ❌ | No artwork touching Signature/Platinum/Infinite text |
 | Landscape orientation | ✅ / ❌ | |
 | Full color (not grayscale) | ✅ / ❌ | |
 
@@ -336,7 +377,7 @@ fallbacks when the card image cannot render due to low bandwidth or connectivity
   to ~455 DPI which comfortably exceeds the minimum.
 - **Missing DPI metadata**: Not relevant — DPI is always calculated from pixel dimensions, not
   read from file metadata.
-- **Contactless indicator (⟳)**: Allowed even if the physical card isn't contactless — do not flag.
+- **Contactless Indicator (⟳ / )))**: Allowed per Visa standards, even if the physical card is not contactless enabled. Do NOT flag as a failure.
 - **Portrait orientation**: Only flag if this is being submitted for Visa review. Portrait display
   in-app is permitted; portrait submission is not.
 - **Partial card images**: Acceptable as long as the user confirms the full image is shown elsewhere
@@ -344,6 +385,14 @@ fallbacks when the card image cannot render due to low bandwidth or connectivity
 - **Gradients**: Fine. Extract the most representative solid color for the fallback values.
 - **Bleed to edge**: Only the Visa Brand Mark has a 56px margin requirement. All other logos,
   artwork, and design elements may extend to the card edge without restriction.
+- **Lower-left reserved zone**: The lower-left area of the card is reserved for card
+  personalization (last 4 PAN digits). It must be completely free of marks or graphics —
+  no issuer logos, brand names, icons, or design elements. Only the card's background color
+  or pattern should be visible. This is a common mistake: issuers often place their logo in
+  the bottom-left, which will be rejected.
+- **Design elements near product identifier**: Artwork, logos, or large design elements must not
+  obscure or touch the Visa product identifier text (Signature, Platinum, Infinite). Flag if
+  elements encroach on the identifier text.
 
 ---
 

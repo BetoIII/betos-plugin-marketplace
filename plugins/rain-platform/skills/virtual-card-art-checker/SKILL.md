@@ -265,7 +265,7 @@ significantly smaller or larger than either option, flag it as ❌ Fail.
 - [ ] **Expiry date**: no expiry date
 - [ ] **Physical card photography**: no photograph or highly detailed realistic illustration of a physical card
 - [ ] **Embossed attribute labels**: no text labels describing embossed-only features
-- [ ] **Lower-left area clear**: the lower-left area of the card is reserved for card personalization (last 4 PAN digits overlay) and **must not contain any marks or graphics** — this includes issuer logos, brand names, icons, design elements, or any other visual content. If anything other than the card background/pattern is in the lower-left, flag as ❌ Fail. Example: an issuer logo placed in the bottom-left corner would fail this check.
+- [ ] **Lower-left area clear**: the lower-left area of the card is reserved for card personalization (last 4 PAN digits overlay) and **must not contain discrete marks or graphics that would compete with or reduce readability of overlaid PAN digits** — this includes issuer logos, brand names, icons, text, or opaque design elements. **Background patterns and subtle decorative elements ARE allowed** — thin lines, curves, gradients, textures, guilloche patterns, and other elements that are clearly part of the card's overall background design do NOT trigger this check, even if they pass through the lower-left zone. The key question is: **would the element meaningfully reduce the legibility of white or light-colored PAN digits overlaid on top of it?** If the answer is no (e.g., a thin decorative curve on a dark background), this check passes. If the answer is yes (e.g., a logo, icon, or high-contrast graphic), flag as ❌ Fail.
 - [ ] **Design elements clear of product identifier**: no artwork, logos, or design elements obscuring or touching the Visa product identifier text (Signature, Platinum, Infinite, etc.)
 
 ### 📐 Layout & orientation
@@ -476,7 +476,7 @@ Output a report in this exact format. Be direct — issuers need to know exactly
 | No PAN / card number | ✅ / ❌ | |
 | No expiry date | ✅ / ❌ | |
 | No physical card photography | ✅ / ❌ | |
-| Lower-left area clear (no marks/graphics) | ✅ / ❌ | Reserved for card personalization — must be completely empty |
+| Lower-left area clear (no marks/graphics) | ✅ / ❌ | Reserved for PAN personalization — no logos, icons, or text; background patterns/decorative lines OK |
 | Design elements clear of product identifier | ✅ / ❌ | No artwork touching Signature/Platinum/Infinite text |
 | Landscape orientation | ✅ / ❌ | |
 | Full color (not grayscale) | ✅ / ❌ | |
@@ -533,10 +533,14 @@ fallbacks when the card image cannot render due to low bandwidth or connectivity
   card. Do NOT pass a card where the brand mark is "close to" or "approximately at" the 56px boundary — if it's borderline,
   fail it. Visa will reject it.
 - **Lower-left reserved zone**: The lower-left area of the card is reserved for card
-  personalization (last 4 PAN digits). It must be completely free of marks or graphics —
-  no issuer logos, brand names, icons, or design elements. Only the card's background color
-  or pattern should be visible. This is a common mistake: issuers often place their logo in
-  the bottom-left, which will be rejected.
+  personalization (last 4 PAN digits). It must be free of discrete, opaque marks or graphics
+  that would reduce PAN readability — no issuer logos, brand names, icons, or text.
+  **Background patterns and subtle decorative elements are permitted** — thin lines, curves,
+  gradients, textures, and other elements that are clearly part of the card's overall
+  background design may pass through this zone without issue. The test is whether overlaid
+  PAN digits would still be clearly legible. Common **failure**: issuer logo in the bottom-left.
+  Common **false positive to avoid**: decorative background curves or lines passing through
+  the zone on a dark background — these do not affect PAN readability and should pass.
 - **Design elements near product identifier**: Artwork, logos, or large design elements must not
   obscure or touch the Visa product identifier text (Signature, Platinum, Infinite). Flag if
   elements encroach on the identifier text.

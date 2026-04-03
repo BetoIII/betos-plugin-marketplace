@@ -36,7 +36,7 @@ Per Visa Digital Card Brand Standards, these elements must appear on every digit
 
 - Must be present and clearly legible
 - Positioned in **upper-left or upper-right** corner only — no lower-edge placement allowed
-- Minimum margin of ~56px from nearest card edges — **this margin applies ONLY to the Visa Brand Mark**
+- Minimum margin of **56px** from nearest card edges — **this margin applies ONLY to the Visa Brand Mark**. Zero tolerance: any part of the brand mark (including letter tips like the "A" in VISA, and product identifier text) crossing this boundary is a hard fail. This is the **#1 reason Visa rejects card art**.
 - Must not be distorted or stretched
 - Must match one of two allowed size options (see below)
 - **Must have strong color contrast against the card background** — both the "VISA" wordmark and the product identifier (Signature, Platinum, Infinite, Debit, etc.) must be clearly readable. If the background is medium or bright, use white. If the background is very light, use dark. Avoid gray/silver text on colored backgrounds — Visa has rejected cards for insufficient contrast (e.g., silver "Platinum" on pink).

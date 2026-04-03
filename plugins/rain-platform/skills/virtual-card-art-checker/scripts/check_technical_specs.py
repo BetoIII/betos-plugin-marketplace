@@ -162,6 +162,240 @@ def extract_colors(img):
     }
 
 
+def _density_filter(mask, kernel=12, min_neighbors=8):
+    """
+    Remove isolated mark pixels (decorative lines/patterns) by requiring
+    a minimum number of mark-pixel neighbors within a local window.
+    Text characters form dense clusters; thin decorative lines do not.
+    """
+    mm = mask.astype(float)
+    rh, rw = mm.shape
+    k = kernel
+    padded = np.zeros((rh + k, rw + k))
+    padded[:rh, :rw] = mm
+    cs = np.cumsum(np.cumsum(padded, axis=0), axis=1)
+    density = cs[k:rh + k, k:rw + k] - cs[k:rh + k, :rw] - cs[:rh, k:rw + k] + cs[:rh, :rw]
+    return mask & (density >= min_neighbors)
+
+
+def check_bleed_zone(img):
+    """
+    Measure the pixel distance from the Visa Brand Mark to card edges.
+
+    The Visa Brand Mark must be at least 56px from the nearest card edges.
+    This is the #1 reason for Visa card art rejection.
+
+    The algorithm uses a two-pass approach:
+    1. LOCALIZATION: Finds the Visa mark center in a safe interior zone using
+       a strict brightness threshold + density filtering to distinguish the
+       mark text from decorative patterns (metallic effects, line art, etc.)
+    2. MEASUREMENT: Measures exact pixel distance from mark edges to card edges
+       within a focused area around the localized mark.
+
+    The mark is detected via brightness: white text on dark backgrounds, or
+    dark text on light backgrounds. A density filter removes sparse decorative
+    elements (thin lines, scattered highlights) that would otherwise create
+    false distance readings.
+
+    Returns a dict with per-edge measurements and an overall pass/fail.
+    FAIL if distance < 56px, WARN if 56-58px (borderline).
+    """
+    gray = np.array(img.convert("L"), dtype=float)
+    h, w = gray.shape
+    m = VISA_MARK_EDGE_MARGIN  # 56px
+    BORDERLINE_MAX = 58  # distances 56-58px get a borderline warning
+    MIN_MARK_PIXELS_PER_LINE = 8  # min mark pixels in a row/col to count as content
+
+    # Determine background from the card interior (exclude outer 100px to avoid logos)
+    interior = gray[100:h - 100, 100:w - 100]
+    bg_median = float(np.median(interior))
+    is_dark_bg = bg_median < 128
+
+    # === PASS 1: Locate the Visa Brand Mark in a safe interior zone ===
+    # Search both upper-right and lower-right corners (mark can be in either)
+    candidates = []
+    for corner in ["upper-right", "lower-right"]:
+        if corner == "upper-right":
+            sy1, sy2 = 40, min(250, h // 2)
+        else:
+            sy1, sy2 = max(h // 2, h - 250), h - 40
+        sx1, sx2 = max(w // 2, w - 400), w - 40
+        if sy2 <= sy1 or sx2 <= sx1:
+            continue
+
+        safe = gray[sy1:sy2, sx1:sx2]
+
+        # Cascade from strict to moderate threshold
+        if is_dark_bg:
+            thresholds = [240, 200, 160, max(bg_median + 80, 130)]
+        else:
+            thresholds = [40, 60, 80, min(bg_median - 80, 100)]
+
+        for thr in thresholds:
+            mask = safe > thr if is_dark_bg else safe < thr
+            dense = _density_filter(mask, kernel=20, min_neighbors=20)
+            n = int(np.sum(dense))
+            if n >= 100:
+                ys, xs = np.where(dense)
+                cy = sy1 + int(np.median(ys))
+                cx = sx1 + int(np.median(xs))
+                candidates.append((corner, cy, cx, n, thr))
+                break
+
+    if not candidates:
+        return {
+            "passed": True,
+            "actual": "Visa Brand Mark not detected",
+            "note": (
+                "Could not programmatically detect the Visa Brand Mark for "
+                "margin measurement. Visual verification required."
+            ),
+            "mark_detected": False,
+            "background_median": round(bg_median, 1),
+        }
+
+    # Pick the candidate with the most mark pixels (most confident detection)
+    candidates.sort(key=lambda c: c[3], reverse=True)
+    corner, cy, cx, _, mark_thr = candidates[0]
+
+    # === PASS 2: Measure distances in a focused area around the mark ===
+    # Extend search to the nearest card edges, but constrain laterally
+    search_y1 = max(0, cy - 120)
+    search_y2 = min(h, cy + 120)
+    search_x1 = max(0, cx - 200)
+    search_x2 = w
+
+    if corner == "upper-right":
+        search_y1 = 0  # extend to top edge
+    else:
+        search_y2 = h  # extend to bottom edge
+
+    focused = gray[search_y1:search_y2, search_x1:search_x2]
+
+    # Use the same strict threshold for measurement that was used for localization.
+    # A strict threshold (e.g., >240 for dark backgrounds) isolates the Visa mark
+    # text from decorative elements (metallic effects, line patterns, subtle textures)
+    # that share similar brightness but are not the mark. While this may miss
+    # anti-aliased fringe pixels (adding ~1-2px tolerance), it avoids false readings
+    # from decorative elements that would make the measurement unreliable.
+    raw_mask = focused > mark_thr if is_dark_bg else focused < mark_thr
+
+    row_counts = np.sum(raw_mask, axis=1)
+    col_counts = np.sum(raw_mask, axis=0)
+
+    sub_rows = row_counts >= MIN_MARK_PIXELS_PER_LINE
+    sub_cols = col_counts >= MIN_MARK_PIXELS_PER_LINE
+
+    if not (np.any(sub_rows) and np.any(sub_cols)):
+        # Relax threshold for edge cases
+        sub_rows = row_counts >= 3
+        sub_cols = col_counts >= 3
+
+    if not (np.any(sub_rows) and np.any(sub_cols)):
+        return {
+            "passed": True,
+            "actual": "Visa Brand Mark not measurable",
+            "note": (
+                "Detected Visa Brand Mark region but could not measure precise "
+                "margins. Visual verification required."
+            ),
+            "mark_detected": False,
+            "background_median": round(bg_median, 1),
+        }
+
+    first_row = int(np.argmax(sub_rows))
+    last_col = int(len(sub_cols) - 1 - np.argmax(sub_cols[::-1]))
+
+    # Convert to card-level distances
+    mark_top_y = search_y1 + first_row
+    mark_right_x = search_x1 + last_col
+
+    if corner == "upper-right":
+        near_edge_label = "top"
+        near_distance = mark_top_y
+    else:
+        last_row = int(len(sub_rows) - 1 - np.argmax(sub_rows[::-1]))
+        near_edge_label = "bottom"
+        near_distance = h - (search_y1 + last_row) - 1
+
+    right_distance = w - mark_right_x - 1
+    top_distance = near_distance  # alias for output
+
+    # === Pass / borderline / fail determination ===
+    near_fail = near_distance < m
+    right_fail = right_distance < m
+    near_borderline = m <= near_distance <= BORDERLINE_MAX
+    right_borderline = m <= right_distance <= BORDERLINE_MAX
+
+    passed = not (near_fail or right_fail)
+    borderline = near_borderline or right_borderline
+
+    # Build result note
+    near_label = near_edge_label.capitalize()
+    detail_parts = []
+    if near_fail:
+        detail_parts.append(
+            f"{near_label} edge: {near_distance}px (FAIL — must be >= {m}px)"
+        )
+    elif near_borderline:
+        detail_parts.append(
+            f"{near_label} edge: {near_distance}px (BORDERLINE — only "
+            f"{near_distance - m + 1}px above the {m}px minimum; "
+            f"Visa may reject borderline placements)"
+        )
+
+    if right_fail:
+        detail_parts.append(
+            f"Right edge: {right_distance}px (FAIL — must be >= {m}px)"
+        )
+    elif right_borderline:
+        detail_parts.append(
+            f"Right edge: {right_distance}px (BORDERLINE — only "
+            f"{right_distance - m + 1}px above the {m}px minimum; "
+            f"Visa may reject borderline placements)"
+        )
+
+    if not passed:
+        note = (
+            f"FAIL — Visa Brand Mark is too close to the card edge. "
+            f"{near_label}: {near_distance}px, Right: {right_distance}px "
+            f"(minimum: {m}px). "
+            f"This is the #1 reason for Visa card art rejection. "
+            + " | ".join(detail_parts)
+        )
+    elif borderline:
+        note = (
+            f"BORDERLINE — Visa Brand Mark margin is within "
+            f"{BORDERLINE_MAX - m}px of the {m}px minimum. "
+            f"{near_label}: {near_distance}px, Right: {right_distance}px. "
+            f"Visa may reject borderline placements — recommend increasing margin. "
+            + " | ".join(detail_parts)
+        )
+    else:
+        note = (
+            f"Visa Brand Mark margins are within spec. "
+            f"{near_label}: {near_distance}px, Right: {right_distance}px "
+            f"(minimum: {m}px)."
+        )
+
+    return {
+        "passed": passed,
+        "borderline": borderline,
+        "actual": (
+            f"{near_label}: {near_distance}px, Right: {right_distance}px"
+            if passed else "Content within margin zone"
+        ),
+        "note": note,
+        "mark_detected": True,
+        "mark_corner": corner,
+        "top_distance": top_distance,
+        "right_distance": right_distance,
+        "min_distance": min(near_distance, right_distance),
+        "background_median": round(bg_median, 1),
+        "mark_threshold": round(mark_thr, 1),
+    }
+
+
 def _load_font(size, bold=False):
     """Try to load a system font at the given size. Returns ImageFont."""
     bold_fonts = [
@@ -607,18 +841,24 @@ def generate_results_image(img, colors, tech_checks, visual_checks,
     tech_headers = ["Check", "Result", "Detail"]
     tech_col_ratios = [0.28, 0.12, 0.60]
     tech_rows_data = []
-    check_order = ["dimensions", "file_format", "dpi"]
+    check_order = ["dimensions", "file_format", "dpi", "bleed_zone"]
     check_labels = {
         "dimensions": "Dimensions (1536x969 px)",
         "file_format": "File Format (PNG)",
         "dpi": "DPI (>= 72 for digital)",
+        "bleed_zone": "56px Margin Zone (Visa Brand Mark)",
     }
     for key in check_order:
         if key not in tech_checks:
             continue
         ck = tech_checks[key]
         passed = ck.get("passed", False)
-        status = "pass" if passed else "fail"
+        if ck.get("borderline"):
+            status = "warning"
+        elif passed:
+            status = "pass"
+        else:
+            status = "fail"
         label = STATUS_LABELS[status]
         detail = ck.get("actual", "")
         if ck.get("note"):
@@ -897,6 +1137,13 @@ def check_image(image_path: str, output_dir: str = None) -> dict:
                else f"Below Visa minimum of {MIN_DPI_DIGITAL} DPI. A wider source image is needed.")
         )
     }
+
+    # --- Bleed Zone Analysis (56px Visa Brand Mark margin) ---
+    try:
+        bleed_result = check_bleed_zone(img)
+        results["checks"]["bleed_zone"] = bleed_result
+    except Exception as e:
+        results["errors"].append(f"Bleed zone analysis failed: {e}")
 
     # --- Color Extraction ---
     try:

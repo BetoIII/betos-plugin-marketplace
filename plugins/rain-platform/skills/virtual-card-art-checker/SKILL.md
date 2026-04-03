@@ -22,6 +22,23 @@ suggests RGB fallback color values, and generates a visual output image for revi
 
 ---
 
+> **⚠️ #1 REJECTION REASON — 56px Visa Brand Mark Margin**
+>
+> The most common reason Visa rejects card art is the **Visa Brand Mark (including "VISA" text
+> and the product identifier like "Signature", "Platinum", etc.) being too close to the card
+> edges**. The mark must be at least 56px from the nearest edges — even 1px under is a rejection.
+> The Python script now includes a **two-pass Visa Brand Mark distance measurement** that:
+> 1. Locates the mark using brightness + density filtering (separates text from decoration)
+> 2. Measures exact pixel distance from the mark to the top/bottom and right card edges
+> 3. Reports **FAIL** if distance < 56px, **WARN** if 56-58px (borderline)
+>
+> Borderline placements (56-58px) have been rejected by Visa in practice — treat WARN as a
+> strong signal to adjust. Always visually verify with extreme scrutiny. When in doubt, **fail
+> the card** — it is better to send back a card for adjustment than to let a borderline case
+> through to Visa and get rejected.
+
+---
+
 ## Your job
 
 When a user shares a card art image (or multiple images), you will:
@@ -177,6 +194,9 @@ unzip -o "$SKILL_ZIP" -d "${SESSION_DIR}/virtual-card-art-checker/"
 
 This outputs JSON with:
 - Pass/fail for: dimensions, file format, DPI (calculated from image resolution)
+- **Bleed zone analysis**: programmatic detection of content in the 56px Visa Brand Mark margin
+  zone — if this check fails, the brand mark is almost certainly extending past the boundary and
+  the card should be flagged as ❌ Fail for the margin check in Step 3
 - Suggested RGB fallback colors (background, foreground, label)
 - Path to the generated output review image
 
@@ -199,8 +219,17 @@ are easy to miss:
 ### ✅ Required elements (must be present)
 - [ ] **Visa Brand Mark**: clearly visible, legible, not distorted or stretched
 - [ ] **Visa Brand Mark position**: in the **upper-left or upper-right** corner only — no lower-edge placement allowed
-- [ ] **Visa Brand Mark margin**: appears to be ~56px from nearest card edges —
-      **this margin requirement applies ONLY to the Visa Brand Mark**, not to other logos or design elements
+- [ ] **Visa Brand Mark margin (CRITICAL — #1 rejection reason)**: Every part of the Visa Brand
+      Mark — including the outermost edges of letters like the tips of the "A" in "VISA" and
+      every character in the product identifier ("Signature", "Platinum", "Infinite", "Debit") —
+      must be **fully inside** the 56px boundary on ALL sides (top, bottom, left, right edges of
+      the card). **Zero tolerance**: if ANY pixel of the brand mark text touches or crosses the
+      red dashed 56px boundary line shown in the review image, this is ❌ **FAIL**. Do NOT use
+      approximate language ("looks about right", "appears close enough"). Zoom in on the boundary
+      edges near the brand mark and check each edge explicitly. The script also runs a programmatic
+      bleed zone analysis — if it flags content in the margin zone, treat that as strong evidence
+      of failure. **This margin requirement applies ONLY to the Visa Brand Mark**, not to other
+      logos or design elements
 - [ ] **Visa Brand Mark size**: must match one of the two allowed size options (see below)
 - [ ] **Issuer logo**: clearly present (may bleed to edge — no margin requirement)
 
@@ -427,6 +456,7 @@ Output a report in this exact format. Be direct — issuers need to know exactly
 | Dimensions (1536×969px) | ✅ Pass / ❌ Fail / ⚠️ Estimated | Actual: `[W×H]` or "Could not verify — file not on disk" |
 | File format (PNG) | ✅ Pass / ❌ Fail / ⚠️ Unverified | Actual: `[format]` or inferred from filename/URL |
 | DPI (≥72 for digital display) | ✅ Pass / ❌ Fail / ⚠️ Unverified | Calculated: `[value]` DPI (from pixel width ÷ 3.375″) |
+| 56px Margin Zone (Visa Brand Mark) | ✅ Pass / ⚠️ Warn / ❌ Fail | Distance measurement from Visa Brand Mark to card edges. FAIL < 56px, WARN 56-58px (borderline) |
 
 ---
 
@@ -437,7 +467,7 @@ Output a report in this exact format. Be direct — issuers need to know exactly
 | Visa Brand Mark present | ✅ / ❌ | |
 | Visa Brand Mark position (upper-left or upper-right only) | ✅ / ❌ | No lower-edge placement allowed |
 | Visa Brand Mark size (Option One: 109px / Option Two: 142px height) | ✅ / ❌ / ⚠️ | Must match one of the two allowed size options |
-| Visa Brand Mark margin (~56px from edges) | ✅ / ❌ / ⚠️ | This requirement applies ONLY to the Visa Brand Mark |
+| Visa Brand Mark margin (56px from edges — **#1 rejection reason**) | ✅ / ❌ | Zero tolerance — any brand mark content past the 56px boundary is a hard fail. Cross-reference with bleed zone analysis. |
 | Visa Brand Mark contrast against background | ✅ / ❌ | Both "VISA" and product identifier must be clearly readable |
 | Issuer logo present | ✅ / ❌ | May bleed to edge — no margin requirement |
 | No EMV chip graphic | ✅ / ❌ | |
@@ -497,6 +527,12 @@ fallbacks when the card image cannot render due to low bandwidth or connectivity
 - **Gradients**: Fine. Extract the most representative solid color for the fallback values.
 - **Bleed to edge**: Only the Visa Brand Mark has a 56px margin requirement. All other logos,
   artwork, and design elements may extend to the card edge without restriction.
+- **Visa Brand Mark margin (most critical check)**: This is the #1 rejection reason from Visa.
+  Even partial encroachment — a single letter tip crossing the 56px line — is a hard fail.
+  The script measures exact pixel distance from the Visa Brand Mark to card edges — FAIL if < 56px,
+  WARN if 56-58px (borderline). If the script flags a FAIL or WARN, visually confirm and fail the
+  card. Do NOT pass a card where the brand mark is "close to" or "approximately at" the 56px boundary — if it's borderline,
+  fail it. Visa will reject it.
 - **Lower-left reserved zone**: The lower-left area of the card is reserved for card
   personalization (last 4 PAN digits). It must be completely free of marks or graphics —
   no issuer logos, brand names, icons, or design elements. Only the card's background color

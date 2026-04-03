@@ -203,7 +203,7 @@ def check_bleed_zone(img):
     gray = np.array(img.convert("L"), dtype=float)
     h, w = gray.shape
     m = VISA_MARK_EDGE_MARGIN  # 56px
-    BORDERLINE_MAX = 58  # distances 56-58px get a borderline warning
+    BORDERLINE_MAX = 56  # only warn at exactly 56px (Visa approves 57+px routinely)
     MIN_MARK_PIXELS_PER_LINE = 8  # min mark pixels in a row/col to count as content
 
     # Determine background from the card interior (exclude outer 100px to avoid logos)
@@ -258,12 +258,15 @@ def check_bleed_zone(img):
     candidates.sort(key=lambda c: c[3], reverse=True)
     corner, cy, cx, _, mark_thr = candidates[0]
 
-    # === PASS 2: Measure distances in a focused area around the mark ===
-    # Extend search to the nearest card edges, but constrain laterally
+    # === PASS 2: Measure distances using contiguous-region expansion ===
+    # Instead of scanning the entire strip from mark to card edge (which
+    # picks up decorative patterns like concentric circles and line art),
+    # we expand outward from the localized mark center and stop at gaps.
+    # This isolates the contiguous mark text from nearby decorative elements.
     search_y1 = max(0, cy - 120)
     search_y2 = min(h, cy + 120)
     search_x1 = max(0, cx - 200)
-    search_x2 = w
+    search_x2 = w  # extend right to measure right-edge distance
 
     if corner == "upper-right":
         search_y1 = 0  # extend to top edge
@@ -273,18 +276,28 @@ def check_bleed_zone(img):
     focused = gray[search_y1:search_y2, search_x1:search_x2]
 
     # Use the same strict threshold for measurement that was used for localization.
-    # A strict threshold (e.g., >240 for dark backgrounds) isolates the Visa mark
-    # text from decorative elements (metallic effects, line patterns, subtle textures)
-    # that share similar brightness but are not the mark. While this may miss
-    # anti-aliased fringe pixels (adding ~1-2px tolerance), it avoids false readings
-    # from decorative elements that would make the measurement unreliable.
+    # No density filter here — it over-filters on some cards (e.g. KEM) and shifts
+    # real measurements. Instead, we use a high per-line pixel threshold (40px)
+    # to skip anti-aliased fringes while keeping solid mark text (100+px per row).
     raw_mask = focused > mark_thr if is_dark_bg else focused < mark_thr
 
     row_counts = np.sum(raw_mask, axis=1)
     col_counts = np.sum(raw_mask, axis=0)
 
-    sub_rows = row_counts >= MIN_MARK_PIXELS_PER_LINE
-    sub_cols = col_counts >= MIN_MARK_PIXELS_PER_LINE
+    # Row threshold: 40px skips anti-aliased top/bottom fringes (~10-25px) while
+    # retaining solid Visa mark text rows (100+px per row). Prevents 1-2px
+    # measurement errors from anti-aliasing on the mark's outer edges.
+    # Column threshold: 8px (lower) because text strokes are narrow — even solid
+    # mark text columns only have ~10-30px due to thin character strokes.
+    MIN_ROW_PIXELS = 40
+    MIN_COL_PIXELS = MIN_MARK_PIXELS_PER_LINE  # 8
+    sub_rows = row_counts >= MIN_ROW_PIXELS
+    sub_cols = col_counts >= MIN_COL_PIXELS
+
+    if not (np.any(sub_rows) and np.any(sub_cols)):
+        # Fall back to lower threshold for smaller marks
+        sub_rows = row_counts >= MIN_MARK_PIXELS_PER_LINE
+        sub_cols = col_counts >= MIN_MARK_PIXELS_PER_LINE
 
     if not (np.any(sub_rows) and np.any(sub_cols)):
         # Relax threshold for edge cases
@@ -303,20 +316,63 @@ def check_bleed_zone(img):
             "background_median": round(bg_median, 1),
         }
 
-    first_row = int(np.argmax(sub_rows))
-    last_col = int(len(sub_cols) - 1 - np.argmax(sub_cols[::-1]))
+    # Expand outward from the mark center to find the contiguous mark region.
+    # Stop at the first gap of consecutive rows/cols without mark pixels.
+    # This prevents decorative elements (concentric circles, line art) that
+    # are separated from the mark text by even a few blank rows from being
+    # counted as part of the mark.
+    GAP_TOLERANCE = 3  # allow up to 3 blank rows/cols (handles anti-aliasing)
 
-    # Convert to card-level distances
-    mark_top_y = search_y1 + first_row
-    mark_right_x = search_x1 + last_col
+    center_row = cy - search_y1  # mark center in focused-region coordinates
+    center_col = cx - search_x1
+
+    # Expand upward from center to find the mark's top edge
+    mark_top_row = center_row
+    gap = 0
+    for r in range(center_row - 1, -1, -1):
+        if sub_rows[r]:
+            mark_top_row = r
+            gap = 0
+        else:
+            gap += 1
+            if gap > GAP_TOLERANCE:
+                break
+
+    # Expand downward from center to find the mark's bottom edge
+    mark_bottom_row = center_row
+    gap = 0
+    for r in range(center_row + 1, len(sub_rows)):
+        if sub_rows[r]:
+            mark_bottom_row = r
+            gap = 0
+        else:
+            gap += 1
+            if gap > GAP_TOLERANCE:
+                break
+
+    # Expand rightward from center to find the mark's right edge
+    mark_right_col = center_col
+    gap = 0
+    for c in range(center_col + 1, len(sub_cols)):
+        if sub_cols[c]:
+            mark_right_col = c
+            gap = 0
+        else:
+            gap += 1
+            if gap > GAP_TOLERANCE:
+                break
+
+    # Convert to card-level coordinates
+    mark_top_y = search_y1 + mark_top_row
+    mark_bottom_y = search_y1 + mark_bottom_row
+    mark_right_x = search_x1 + mark_right_col
 
     if corner == "upper-right":
         near_edge_label = "top"
         near_distance = mark_top_y
     else:
-        last_row = int(len(sub_rows) - 1 - np.argmax(sub_rows[::-1]))
         near_edge_label = "bottom"
-        near_distance = h - (search_y1 + last_row) - 1
+        near_distance = h - mark_bottom_y - 1
 
     right_distance = w - mark_right_x - 1
     top_distance = near_distance  # alias for output
@@ -365,10 +421,10 @@ def check_bleed_zone(img):
         )
     elif borderline:
         note = (
-            f"BORDERLINE — Visa Brand Mark margin is within "
-            f"{BORDERLINE_MAX - m}px of the {m}px minimum. "
+            f"BORDERLINE — Visa Brand Mark margin is at exactly the {m}px minimum. "
             f"{near_label}: {near_distance}px, Right: {right_distance}px. "
-            f"Visa may reject borderline placements — recommend increasing margin. "
+            f"Visa may reject placements with zero safety buffer — recommend "
+            f"increasing margin to at least {m + 2}px. "
             + " | ".join(detail_parts)
         )
     else:

@@ -204,10 +204,9 @@ Save the JSON output — you'll use it in the report.
 
 If Pillow isn't installed, the script installs it automatically.
 
-**Important**: The script always generates an output review image (`<filename>_review.png`) in
-the same directory as the input image. This image shows the card art with the 56px bleed border,
-a sample "•••• 6789" PAN in the suggested foreground color, and the three RGB color values
-displayed to the right. **Always show this output image to the user.**
+**Note**: The script no longer generates a separate review PNG. The results PDF (generated in
+Step 5) is the sole visual output — it contains the card art with bleed border, PAN overlay,
+color swatches, and all compliance tables in a single document.
 
 ---
 

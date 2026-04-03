@@ -1091,12 +1091,12 @@ def generate_results_image(img, colors, tech_checks, visual_checks,
     return output_path
 
 
-def check_image(image_path: str, output_dir: str = None) -> dict:
+def check_image(image_path: str) -> dict:
     results = {
         "file": os.path.basename(image_path),
         "checks": {},
         "colors": {},
-        "output_image": None,
+        "output_image": None,  # deprecated — no review PNG generated
         "errors": []
     }
 
@@ -1153,21 +1153,7 @@ def check_image(image_path: str, output_dir: str = None) -> dict:
         results["errors"].append(f"Color extraction failed: {e}")
         colors = None
 
-    # --- Generate Basic Review Image ---
-    if colors:
-        try:
-            if output_dir:
-                os.makedirs(output_dir, exist_ok=True)
-                out_dir = output_dir
-            else:
-                out_dir = os.path.dirname(os.path.abspath(image_path))
-
-            base_name = os.path.splitext(os.path.basename(image_path))[0]
-            output_path = os.path.join(out_dir, f"{base_name}_review.png")
-            generate_output_image(img, colors, output_path)
-            results["output_image"] = output_path
-        except Exception as e:
-            results["errors"].append(f"Output image generation failed: {e}")
+    # Review PNG generation removed — the results PDF is the sole visual output.
 
     return results
 
@@ -1181,7 +1167,7 @@ def main():
     args = parser.parse_args()
 
     # Always run tech checks first
-    result = check_image(args.image_path, args.output_dir)
+    result = check_image(args.image_path)
 
     # If visual results provided, generate the full results image
     visual_data = None

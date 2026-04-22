@@ -42,7 +42,7 @@
     },
     {
       "name": "rain-platform",
-      "description": "Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, and partner onboarding video review",
+      "description": "Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, partner onboarding video review, and Rain API documentation search",
       "author": {
         "name": "Beto Juárez III",
         "email": "betojuareziii@gmail.com"

@@ -66,10 +66,12 @@ As you read, build a mental map of:
 
 ## Step 4: Load the requirements
 
-Read the reference file for the flow type:
+Read the reference file for the flow type — **always treat the reference file as the source of truth for that program** rather than relying on memory:
 - Business: `references/business-requirements.md`
 - US Consumer: `references/us-consumer-requirements.md`
 - International Consumer: `references/international-consumer-requirements.md`
+
+**Do not generalize the consent-screen structure from one program type to another.** The required checkboxes and their order differ across programs — most notably, US Consumer includes an "Account Opening Privacy Notice" checkbox at position #2 that International Consumer and Business do not. Open the right reference file first and compare the video against that — never against a remembered template.
 
 ## Step 5: Produce the compliance report
 
@@ -136,8 +138,20 @@ Consent screens appear late in the flow, after KYC completes. If Pass 1 doesn't 
 ### Consent checkbox affirmative action
 All checkboxes must require the user to actively click them — **pre-checked checkboxes are a hard fail**. If a checkbox already has a checkmark when the screen first loads, that's non-compliant regardless of the text. Similarly, if a required checkbox is visibly unchecked when the user taps "Continue" or "Done", that's a fail.
 
+### Consent checkbox list depends on program type — do not assume one structure fits all
+The exact set and order of consent checkboxes differs across the three programs. Look these up in the reference file every time — never apply a memorized template across program types.
+
+- **US Consumer (5 items)**: E-Sign → **Account Opening Privacy Notice** → [Partner] Card Terms + Issuer Privacy Policy → Accuracy → Non-solicitation
+- **International Consumer (4 items)**: E-Sign → [Partner] Card Terms + Issuer Privacy Policy → Accuracy → Non-solicitation
+- **Business — Business Agreements page (4 items)**: E-Sign → [Partner] Card Terms + Issuer Privacy Policy → Accuracy → Non-solicitation
+- **Business — Authorized User Agreements page (1 item)**: Authorized User Agreement
+
+Common false-positive to avoid: in a **US Consumer** flow, the second checkbox is **"I accept the Account Opening Privacy Notice"** — that is the correct structure, not an "extra" checkbox or a misplacement. Do not report the Card Terms + Issuer Privacy Policy checkbox as "missing from position #2" in a US Consumer flow; it is expected at position #3.
+
+The Card Terms + Issuer Privacy Policy can appear as a single combined checkbox (recommended) **or** as two separate checkboxes — Rain's spec explicitly allows both. Do not fail a flow just because they are split into two boxes.
+
 ### E-Sign placement
-The E-Sign consent must be a completely standalone checkbox — not merged with any other item — and it must be the very first checkbox in the Card Program/user agreement section.
+The E-Sign consent must be a completely standalone checkbox — not merged with any other item — and it must be the very first checkbox in the user/business agreements section.
 
 ### Checkbox text and partner name consistency
 Read every consent checkbox carefully. The text must use the partner's actual product brand name throughout. If the app is called "Lambi" but checkboxes say "Yunlen Spend Card", that's a fail — the right brand name must be used consistently across all four checkboxes.
@@ -145,5 +159,5 @@ Read every consent checkbox carefully. The text must use the partner's actual pr
 ### What counts as card creation
 The flow should end with a card object explicitly displayed — card face, card number (even masked), card type, network logo, and/or "Active" status. A generic home dashboard without a visible card does not satisfy this.
 
-### Partner Privacy Policy placement
-If the partner includes their own privacy policy checkbox, it must be the absolute last item — after every Rain/issuer-required checkbox. A partner privacy policy appearing before the Card Program section (e.g., in a top-level "Core Agreements" or "App Terms" section) is a fail.
+### Partner-owned extra checkboxes
+Rain's official requirements do not specify, require, or prohibit a partner's own privacy-policy checkbox — it is not part of any of the three published consent flows. If a partner includes one, the safe rule is that it must appear **after** all Rain-required checkboxes and must have been pre-approved by Rain Legal. Flag any partner-owned checkbox that appears before the Rain-required items as a question for Rain Legal rather than as an automatic fail.

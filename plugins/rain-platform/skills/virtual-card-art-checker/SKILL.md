@@ -230,6 +230,18 @@ are easy to miss:
       of failure. **This margin requirement applies ONLY to the Visa Brand Mark**, not to other
       logos or design elements
 - [ ] **Visa Brand Mark size**: must match one of the two allowed size options (see below)
+- [ ] **Product identifier present and placed**: Every card must display a Visa product
+      identifier — one of `Visa Platinum`, `Visa Signature`, `Visa Infinite` (consumer
+      cards) or `Corporate` (business/corporate cards). Rain no longer offers the Classic
+      tier, so a product identifier is **always required** — there is no valid case where
+      it can be absent. The identifier must be placed **directly below or immediately
+      adjacent to the Visa Brand Mark**, anchored to the same upper corner (upper-left or
+      upper-right). Flag as ❌ Fail if: (a) no identifier is visible on the card, (b) the
+      identifier is in the opposite corner from the Brand Mark, (c) the identifier is
+      separated from the Brand Mark by unrelated graphics or large empty space, or
+      (d) the identifier is anywhere in the lower-left personalization zone. Casing
+      should match the canonical forms; if it deviates (e.g., `VISA PLATINUM`,
+      `signature`), include a ⚠️ note in the result.
 - [ ] **Issuer logo**: clearly present (may bleed to edge — no margin requirement)
 
 #### Visa Brand Mark Size Options
@@ -347,6 +359,7 @@ Examples of checks that **should** get markers:
 - Visa Brand Mark margin → marker at the edge where margin is insufficient
 - Lower-left area not clear → marker at the offending element in the lower-left
 - Design elements near product identifier → marker where elements encroach
+- Product identifier present and placed → marker at the identifier's actual position when misplaced; no marker when entirely absent (absence check)
 
 Examples of checks that should **NOT** get markers:
 - Landscape orientation (global, not location-specific)
@@ -468,6 +481,7 @@ Output a report in this exact format. Be direct — issuers need to know exactly
 | Visa Brand Mark size (Option One: 109px / Option Two: 142px height) | ✅ / ❌ / ⚠️ | Must match one of the two allowed size options |
 | Visa Brand Mark margin (56px from edges — **#1 rejection reason**) | ✅ / ❌ | Zero tolerance — any brand mark content past the 56px boundary is a hard fail. Cross-reference with bleed zone analysis. |
 | Visa Brand Mark contrast against background | ✅ / ❌ | Both "VISA" and product identifier must be clearly readable |
+| Product identifier present and placed | ✅ / ❌ / ⚠️ | Required: one of Visa Platinum / Signature / Infinite (consumer) or Corporate (business), placed directly below/adjacent to the Brand Mark in the same upper corner |
 | Issuer logo present | ✅ / ❌ | May bleed to edge — no margin requirement |
 | No EMV chip graphic | ✅ / ❌ | |
 | No hologram imagery | ✅ / ❌ | |
@@ -544,6 +558,17 @@ fallbacks when the card image cannot render due to low bandwidth or connectivity
 - **Design elements near product identifier**: Artwork, logos, or large design elements must not
   obscure or touch the Visa product identifier text (Signature, Platinum, Infinite). Flag if
   elements encroach on the identifier text.
+- **Product identifier present and placed**: Every Rain-issued card must include one of
+  four Visa product identifiers — `Visa Platinum`, `Visa Signature`, or `Visa Infinite`
+  for consumer cards; `Corporate` for business/corporate cards. Rain no longer offers
+  the Classic tier, so absence of an identifier is an automatic ❌ Fail. The identifier
+  is part of the Visa product lockup and must be placed directly below or immediately
+  adjacent to the Visa Brand Mark, in the same upper corner. Common rejections:
+  identifier missing entirely, identifier drifted into the personalization zone,
+  identifier in the opposite corner from the Brand Mark, or identifier separated from
+  the Brand Mark by unrelated artwork. Verifying the *correct* identifier for the
+  provisioned product tier requires the program record and is not validated here — but
+  the presence requirement (at least one of the four) is enforced.
 
 ---
 

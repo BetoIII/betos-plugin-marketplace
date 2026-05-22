@@ -11,7 +11,7 @@ This skill gives you access to Rain's complete API documentation. The docs are c
 
 The skill caches two files in `<cache-dir>/`:
 
-- **`llms.txt`** — Index of all ~400 doc pages with titles, URLs, and short descriptions. Read this first to locate relevant pages quickly.
+- **`llms.txt`** — Index of all ~400 doc pages with titles, URLs, and short descriptions. Read this first to locate relevant pages quickly. *Note: as of May 2026, upstream `docs.rain.xyz` no longer serves the `llms.txt` index endpoint. The skill falls back to whatever copy is already cached. To locate pages by title in that case, grep `^# ` in `llms-full.txt` instead.*
 - **`llms-full.txt`** — Complete documentation content (~29,000 lines). Each page starts with `# Title` followed by `Source: <url>`.
 - **`.metadata.json`** — Bookkeeping: `fetched_at`, sha256 hashes, ETag, and Last-Modified for each file. Used by the refresh script for cheap conditional-GET freshness checks.
 

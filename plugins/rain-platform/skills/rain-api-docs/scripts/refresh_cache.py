@@ -55,8 +55,9 @@ LLMS_FULL_URL = f"{DOCS_BASE}/.well-known/llms-full.txt"
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) rain-api-docs-refresh"
 
 FILES = [
-    ("llms_txt", LLMS_TXT_URL, "llms.txt", 60),
-    ("llms_full", LLMS_FULL_URL, "llms-full.txt", 180),
+    # (key, url, filename, timeout_seconds, required)
+    ("llms_txt", LLMS_TXT_URL, "llms.txt", 60, False),
+    ("llms_full", LLMS_FULL_URL, "llms-full.txt", 180, True),
 ]
 
 
@@ -87,7 +88,11 @@ def save_metadata(cache_dir: Path, meta: dict) -> None:
 
 
 def cache_files_present(cache_dir: Path) -> bool:
-    return all((cache_dir / fname).exists() for _, _, fname, _ in FILES)
+    return all(
+        (cache_dir / fname).exists()
+        for _, _, fname, _, required in FILES
+        if required
+    )
 
 
 class AuthError(RuntimeError):
@@ -95,6 +100,10 @@ class AuthError(RuntimeError):
 
 
 class NetworkError(RuntimeError):
+    pass
+
+
+class NotFoundError(RuntimeError):
     pass
 
 
@@ -147,7 +156,7 @@ def conditional_get(session, url: str, etag: str | None, last_modified: str | No
     Conditional GET. Returns (status, body_or_None, headers).
     - status 304: body is None, headers contain ETag/Last-Modified if echoed.
     - status 200: body is the text content.
-    Raises NetworkError on transport failure.
+    Raises NotFoundError on HTTP 404, NetworkError on other transport/HTTP failures.
     """
     kind, sess = session
     extra = {"User-Agent": USER_AGENT}
@@ -163,6 +172,8 @@ def conditional_get(session, url: str, etag: str | None, last_modified: str | No
             raise NetworkError(f"GET {url} failed: {e}") from e
         if resp.status_code == 304:
             return 304, None, dict(resp.headers)
+        if resp.status_code == 404:
+            raise NotFoundError(f"GET {url} returned HTTP 404")
         if resp.status_code != 200:
             raise NetworkError(f"GET {url} returned HTTP {resp.status_code}")
         return 200, resp.text, dict(resp.headers)
@@ -174,6 +185,8 @@ def conditional_get(session, url: str, etag: str | None, last_modified: str | No
     except HTTPError as e:
         if e.code == 304:
             return 304, None, dict(e.headers)
+        if e.code == 404:
+            raise NotFoundError(f"GET {url} returned HTTP 404") from e
         raise NetworkError(f"GET {url} returned HTTP {e.code}") from e
     except URLError as e:
         raise NetworkError(f"GET {url} failed: {e}") from e
@@ -256,8 +269,9 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
 
     any_change = False
     new_meta = {"fetched_at": now_iso(), "source_base": DOCS_BASE}
+    degraded: list[str] = []
 
-    for key, url, fname, timeout in FILES:
+    for key, url, fname, timeout, required in FILES:
         entry = meta.get(key, {}) if has_files else {}
         try:
             result = fetch_one(session, key, url, fname, timeout, entry)
@@ -266,6 +280,21 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
                 print(f"  {e}", file=sys.stderr)
             print("auth-error")
             return 2
+        except NotFoundError as e:
+            if required:
+                if not quiet:
+                    print(f"  Required file {fname} not found: {e}", file=sys.stderr)
+                print("network-error")
+                return 2
+            if not quiet:
+                print(
+                    f"  {fname} not served upstream (404); keeping cached copy",
+                    file=sys.stderr,
+                )
+            if entry:
+                new_meta[key] = entry
+            degraded.append(key)
+            continue
         except NetworkError as e:
             if not quiet:
                 print(f"  Network error fetching {fname}: {e}", file=sys.stderr)
@@ -290,6 +319,8 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
         print("fresh")
         return 0
 
+    if degraded:
+        new_meta["degraded_endpoints"] = degraded
     save_metadata(cache_dir, new_meta)
     print("refreshed" if any_change else "fresh")
     return 0
@@ -314,10 +345,28 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
         print("network-error")
         return 2
 
+    prior_meta = load_metadata(cache_dir)
     new_meta = {"fetched_at": now_iso(), "source_base": DOCS_BASE}
-    for key, url, fname, timeout in FILES:
+    degraded: list[str] = []
+    for key, url, fname, timeout, required in FILES:
         try:
             status, text, headers = conditional_get(session, url, None, None, timeout)
+        except NotFoundError as e:
+            if required:
+                if not quiet:
+                    print(f"  Required file {fname} not found: {e}", file=sys.stderr)
+                print("network-error")
+                return 2
+            if not quiet:
+                print(
+                    f"  {fname} not served upstream (404); keeping cached copy",
+                    file=sys.stderr,
+                )
+            prior_entry = prior_meta.get(key)
+            if prior_entry:
+                new_meta[key] = prior_entry
+            degraded.append(key)
+            continue
         except NetworkError as e:
             if not quiet:
                 print(f"  Network error fetching {fname}: {e}", file=sys.stderr)
@@ -340,6 +389,8 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
         if not quiet:
             print(f"  Wrote {fname} ({len(text):,} chars)")
 
+    if degraded:
+        new_meta["degraded_endpoints"] = degraded
     save_metadata(cache_dir, new_meta)
     print("refreshed")
     return 0

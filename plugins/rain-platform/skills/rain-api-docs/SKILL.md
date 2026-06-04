@@ -11,9 +11,11 @@ This skill gives you access to Rain's complete API documentation. The docs are c
 
 The skill caches two files in `<cache-dir>/`:
 
-- **`llms.txt`** — Index of all ~400 doc pages with titles, URLs, and short descriptions. Read this first to locate relevant pages quickly. *Note: as of May 2026, upstream `docs.rain.xyz` no longer serves the `llms.txt` index endpoint. The skill falls back to whatever copy is already cached. To locate pages by title in that case, grep `^# ` in `llms-full.txt` instead.*
+- **`llms.txt`** — Index of all ~400 doc pages with titles, URLs, and short descriptions. Read this first to locate relevant pages quickly.
 - **`llms-full.txt`** — Complete documentation content (~29,000 lines). Each page starts with `# Title` followed by `Source: <url>`.
-- **`.metadata.json`** — Bookkeeping: `fetched_at`, sha256 hashes, ETag, and Last-Modified for each file. Used by the refresh script for cheap conditional-GET freshness checks.
+- **`.metadata.json`** — Bookkeeping: `fetched_at`, sha256 hashes, ETag, `Last-Modified`, and `url_used` (which candidate path actually served the content) for each file. Also records `degraded_endpoints` listing any file whose candidate URLs all returned 404. Used by the refresh script for cheap conditional-GET freshness checks.
+
+The refresher tries each file at `https://docs.rain.xyz/.well-known/<file>` first and falls back to `https://docs.rain.xyz/<file>` (the docs root) when the well-known path 404s, so the skill survives Rain rearranging these endpoints. If both candidates return 404 for one of the files, the cached copy is kept and the file's key is added to `degraded_endpoints`; to locate pages by title in that case, grep `^# ` in `llms-full.txt` instead of reading the (possibly stale) `llms.txt`.
 
 The docs cover: API changelog, webhook schemas, smart contracts changelog, guides (authorization, card management, KYC/KYB, disputes, collateral, ledgering, onramps/offramps, 3DS, shipping, reporting), and the full REST API reference.
 

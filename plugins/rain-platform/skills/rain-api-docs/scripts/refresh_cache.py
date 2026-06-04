@@ -50,14 +50,20 @@ except ImportError:
 DEFAULT_ACCESS_CODE = "8QFfkXPJ!XGdsCBk4n"
 DOCS_BASE = "https://docs.rain.xyz"
 LOGIN_URL = f"{DOCS_BASE}/login/callback/password"
-LLMS_TXT_URL = f"{DOCS_BASE}/.well-known/llms.txt"
-LLMS_FULL_URL = f"{DOCS_BASE}/.well-known/llms-full.txt"
+LLMS_TXT_URLS = [
+    f"{DOCS_BASE}/.well-known/llms.txt",
+    f"{DOCS_BASE}/llms.txt",
+]
+LLMS_FULL_URLS = [
+    f"{DOCS_BASE}/.well-known/llms-full.txt",
+    f"{DOCS_BASE}/llms-full.txt",
+]
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) rain-api-docs-refresh"
 
 FILES = [
-    # (key, url, filename, timeout_seconds, required)
-    ("llms_txt", LLMS_TXT_URL, "llms.txt", 60, False),
-    ("llms_full", LLMS_FULL_URL, "llms-full.txt", 180, True),
+    # (key, urls, filename, timeout_seconds, required)
+    ("llms_txt", LLMS_TXT_URLS, "llms.txt", 60, False),
+    ("llms_full", LLMS_FULL_URLS, "llms-full.txt", 180, True),
 ]
 
 
@@ -241,6 +247,36 @@ def fetch_one(session, key: str, url: str, fname: str, timeout: int, meta_entry:
     return ("changed", text, new_meta)
 
 
+def fetch_with_fallback(
+    session,
+    key: str,
+    urls: list,
+    fname: str,
+    timeout: int,
+    meta_entry: dict,
+    quiet: bool = True,
+):
+    """
+    Walk candidate URLs in order. Return (result, url_used) for the first URL
+    that succeeds, where `result` is whatever fetch_one returns.
+
+    Raises NotFoundError only after every candidate returns 404. AuthError and
+    NetworkError propagate immediately on the first occurrence.
+    """
+    last_not_found: NotFoundError | None = None
+    for url in urls:
+        try:
+            result = fetch_one(session, key, url, fname, timeout, meta_entry)
+        except NotFoundError as e:
+            last_not_found = e
+            if not quiet:
+                print(f"  {fname}: {url} returned 404; trying next candidate", file=sys.stderr)
+            continue
+        return result, url
+    assert last_not_found is not None
+    raise last_not_found
+
+
 def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = False) -> int:
     """
     Verify cache freshness and refresh if needed.
@@ -271,10 +307,12 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
     new_meta = {"fetched_at": now_iso(), "source_base": DOCS_BASE}
     degraded: list[str] = []
 
-    for key, url, fname, timeout, required in FILES:
+    for key, urls, fname, timeout, required in FILES:
         entry = meta.get(key, {}) if has_files else {}
         try:
-            result = fetch_one(session, key, url, fname, timeout, entry)
+            result, url_used = fetch_with_fallback(
+                session, key, urls, fname, timeout, entry, quiet=quiet
+            )
         except AuthError as e:
             if not quiet:
                 print(f"  {e}", file=sys.stderr)
@@ -283,12 +321,12 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
         except NotFoundError as e:
             if required:
                 if not quiet:
-                    print(f"  Required file {fname} not found: {e}", file=sys.stderr)
+                    print(f"  Required file {fname} not found at any candidate URL: {e}", file=sys.stderr)
                 print("network-error")
                 return 2
             if not quiet:
                 print(
-                    f"  {fname} not served upstream (404); keeping cached copy",
+                    f"  {fname} not served upstream (404) at any candidate; keeping cached copy",
                     file=sys.stderr,
                 )
             if entry:
@@ -302,15 +340,15 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
             return 2
 
         if result[0] == "fresh":
-            new_meta[key] = result[1]
+            new_meta[key] = {**result[1], "url_used": url_used}
         else:
             any_change = True
             _, text, entry_meta = result
-            new_meta[key] = entry_meta
+            new_meta[key] = {**entry_meta, "url_used": url_used}
             if not read_only:
                 (cache_dir / fname).write_text(text, encoding="utf-8")
                 if not quiet:
-                    print(f"  Wrote {fname} ({len(text):,} chars)")
+                    print(f"  Wrote {fname} ({len(text):,} chars) from {url_used}")
 
     if read_only:
         if any_change or not has_files:
@@ -348,18 +386,25 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
     prior_meta = load_metadata(cache_dir)
     new_meta = {"fetched_at": now_iso(), "source_base": DOCS_BASE}
     degraded: list[str] = []
-    for key, url, fname, timeout, required in FILES:
+    for key, urls, fname, timeout, required in FILES:
         try:
-            status, text, headers = conditional_get(session, url, None, None, timeout)
+            result, url_used = fetch_with_fallback(
+                session, key, urls, fname, timeout, {}, quiet=quiet
+            )
+        except AuthError as e:
+            if not quiet:
+                print(f"  {e}", file=sys.stderr)
+            print("auth-error")
+            return 2
         except NotFoundError as e:
             if required:
                 if not quiet:
-                    print(f"  Required file {fname} not found: {e}", file=sys.stderr)
+                    print(f"  Required file {fname} not found at any candidate URL: {e}", file=sys.stderr)
                 print("network-error")
                 return 2
             if not quiet:
                 print(
-                    f"  {fname} not served upstream (404); keeping cached copy",
+                    f"  {fname} not served upstream (404) at any candidate; keeping cached copy",
                     file=sys.stderr,
                 )
             prior_entry = prior_meta.get(key)
@@ -373,21 +418,12 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
             print("network-error")
             return 2
 
-        if looks_like_login_page(text or ""):
-            if not quiet:
-                print(f"  {fname} looked like HTML/login page", file=sys.stderr)
-            print("auth-error")
-            return 2
-
+        # With an empty meta_entry, fetch_with_fallback always returns "changed".
+        _, text, entry_meta = result
         (cache_dir / fname).write_text(text, encoding="utf-8")
-        new_meta[key] = {
-            "sha256": sha256_text(text),
-            "size": len(text),
-            "etag": header(headers, "ETag"),
-            "last_modified": header(headers, "Last-Modified"),
-        }
+        new_meta[key] = {**entry_meta, "url_used": url_used}
         if not quiet:
-            print(f"  Wrote {fname} ({len(text):,} chars)")
+            print(f"  Wrote {fname} ({len(text):,} chars) from {url_used}")
 
     if degraded:
         new_meta["degraded_endpoints"] = degraded

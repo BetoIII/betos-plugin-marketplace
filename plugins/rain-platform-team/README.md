@@ -1,6 +1,6 @@
 # Rain Platform Team
 
-Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, and Rain API documentation search.
+Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, Rain API documentation search, and collateral contract admin wallet lookup.
 
 ## Skills
 
@@ -37,6 +37,24 @@ Reviews a partner's sandbox onboarding screen recording against Rain's complianc
 - "does this pass" / "is our flow correct"
 - "can you review our demo video"
 - "check our onboarding recording before we go live"
+
+---
+
+### `rain-collateral-admin`
+
+Looks up the collateral contract admin wallet address(es) for a Rain user by querying the Weather Station internal API via a logged-in Chrome session. Returns the EVM wallet plus Solana/Stellar/Tron addresses when set.
+
+**What it does:**
+1. **Opens a Chrome tab** — uses Claude in Chrome (`tabs_context_mcp`) to get a tab
+2. **Navigates to Weather Station** — ensures the auth session is active (VPN required)
+3. **Fetches user data** — runs JS in the tab to call the Weather Station API with the session token
+4. **Returns the addresses** — surfaces EVM (collateral admin), Solana, Stellar, and Tron
+
+**Trigger phrases:**
+- "what wallet is on this user" / "get the address for user X"
+- "collateral admin for [UUID]"
+- "what's the wallet attached to user [ID]"
+- "find the wallet for this user ID"
 
 ---
 

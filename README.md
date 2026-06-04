@@ -81,6 +81,7 @@ Support operations toolkit for the Rain team — virtual card art compliance che
 **Skills:**
 - `virtual-card-art-checker` — Reviews virtual/digital card art submissions against Visa Digital Card Brand Standards (Sept 2025); validates technical specs, visual compliance, extracts RGB fallback colors, and generates an output review image with bleed border and sample PAN overlay
 - `partner-video-review` — Analyzes partner sandbox onboarding screen recordings against Rain's compliance requirements; frame-extracts the video and produces a structured pass/fail report
+- `rain-collateral-admin` — Looks up the collateral contract admin wallet (EVM, Solana, Stellar, Tron) for a Rain user via the Weather Station API using a logged-in Chrome session
 
 ---
 

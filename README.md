@@ -79,7 +79,6 @@ Support operations toolkit for the Rain team — Pylon issue triage, virtual car
 ```
 
 **Skills:**
-- `triage-pylon-issues` — Fetches Pylon issues, classifies them to Horatio or Rain based on the support scope agreement, and tags them for routing
 - `virtual-card-art-checker` — Reviews virtual/digital card art submissions against Visa Digital Card Brand Standards (Sept 2025); validates technical specs, visual compliance, extracts RGB fallback colors, and generates an output review image with bleed border and sample PAN overlay
 - `partner-video-review` — Analyzes partner sandbox onboarding screen recordings against Rain's compliance requirements; frame-extracts the video and produces a structured pass/fail report
 

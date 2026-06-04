@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,7 +64,9 @@ USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) rain-api-docs-refr
 FILES = [
     # (key, urls, filename, timeout_seconds, required)
     ("llms_txt", LLMS_TXT_URLS, "llms.txt", 60, False),
-    ("llms_full", LLMS_FULL_URLS, "llms-full.txt", 180, True),
+    # llms_full is "required=False" because we have a per-page reconstruction
+    # fallback (rebuild_llms_full_from_pages) when the upstream file is 404.
+    ("llms_full", LLMS_FULL_URLS, "llms-full.txt", 180, False),
 ]
 
 
@@ -196,6 +199,11 @@ def conditional_get(session, url: str, etag: str | None, last_modified: str | No
         raise NetworkError(f"GET {url} returned HTTP {e.code}") from e
     except URLError as e:
         raise NetworkError(f"GET {url} failed: {e}") from e
+    except (TimeoutError, OSError) as e:
+        # Python 3.9 raises socket.timeout (an OSError) directly here, not
+        # wrapped in URLError; catch broadly so a stalled connection becomes
+        # a NetworkError the caller can recover from instead of a hard crash.
+        raise NetworkError(f"GET {url} failed: {e}") from e
     return resp.status, resp.read().decode("utf-8"), dict(resp.headers)
 
 
@@ -211,6 +219,137 @@ def header(headers: dict, name: str) -> str | None:
 def looks_like_login_page(text: str) -> bool:
     head = text[:500].lower()
     return "<html" in head or len(text) < 100
+
+
+MD_LINK_RE = re.compile(r"\[([^\]]+)\]\((https://docs\.rain\.xyz/[^)\s]+\.md)\)")
+
+
+def parse_md_urls(llms_txt: str) -> list[tuple[str, str]]:
+    """Return ordered, de-duplicated (title, .md-url) pairs from llms.txt."""
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for m in MD_LINK_RE.finditer(llms_txt):
+        title, url = m.group(1).strip(), m.group(2).strip()
+        if url in seen:
+            continue
+        seen.add(url)
+        out.append((title, url))
+    return out
+
+
+def reconstruct_page(title: str, md_url: str, body: str) -> str:
+    """Format one page to match the canonical `# Title\\nSource: URL\\n\\n\\n<body>` layout."""
+    source_url = md_url[:-3] if md_url.endswith(".md") else md_url
+    stripped = body.lstrip()
+    if stripped.startswith("# "):
+        first_line, _, rest = stripped.partition("\n")
+        return f"{first_line}\nSource: {source_url}\n\n\n{rest.lstrip()}\n"
+    return f"# {title}\nSource: {source_url}\n\n\n{stripped}\n"
+
+
+def _fetch_one_md_page(session, pair, timeout, retries: int = 1):
+    """
+    Worker for the per-page fallback. Returns (title, md_url, body) where
+    `body` is the markdown text on success or None on any failure (404, login
+    page response, or repeated network errors).
+
+    Retries once on transient NetworkError to absorb stray socket timeouts
+    under concurrent load. 404s aren't retried — the page genuinely doesn't
+    exist at that URL.
+
+    Thread-safe for both session kinds:
+      - `requests.Session.get` is documented thread-safe after auth.
+      - The stdlib `http.cookiejar.CookieJar` uses an internal RLock around
+        `add_cookie_header`/`extract_cookies`, and urllib creates a fresh
+        HTTPSConnection per request, so no shared mutable connection state.
+    """
+    title, md_url = pair
+    last_err: NetworkError | None = None
+    for attempt in range(retries + 1):
+        try:
+            status, body, _ = conditional_get(session, md_url, None, None, timeout)
+        except NotFoundError:
+            return title, md_url, None
+        except NetworkError as e:
+            last_err = e
+            continue
+        if status != 200 or not body or looks_like_login_page(body):
+            return title, md_url, None
+        return title, md_url, body
+    return title, md_url, None
+
+
+def rebuild_llms_full_from_pages(
+    session,
+    llms_txt: str,
+    timeout: int,
+    quiet: bool,
+    max_fail_ratio: float = 0.5,
+    max_workers: int = 8,
+):
+    """
+    Walk every .md URL in llms.txt and concatenate into llms-full.txt format.
+
+    Uses a thread pool for both session kinds:
+      - `requests.Session.get` is documented thread-safe after auth.
+      - The stdlib urllib opener with `HTTPCookieProcessor` is also safe to
+        share because the underlying CookieJar locks its mutators and urllib
+        creates a fresh HTTPSConnection per request.
+
+    Returns (text, fetched, total, failed_urls). Raises NotFoundError if the
+    proportion of per-page 404s exceeds `max_fail_ratio` — in that case the
+    caller should fall back to keeping the cached llms-full.txt.
+    """
+    pairs = parse_md_urls(llms_txt)
+    total = len(pairs)
+    if total == 0:
+        raise NotFoundError("no per-page .md URLs in llms.txt; cannot reconstruct")
+
+    workers = max(1, min(max_workers, total))
+
+    if not quiet:
+        mode = f"{workers} parallel workers" if workers > 1 else "sequential"
+        print(
+            f"  llms-full.txt: upstream 404; reconstructing from {total} "
+            f"per-page .md files ({mode})",
+            file=sys.stderr,
+        )
+
+    chunks: list[str] = []
+    failed: list[str] = []
+
+    def consume(result, completed_count):
+        title, md_url, body = result
+        if body is None:
+            failed.append(md_url)
+        else:
+            chunks.append(reconstruct_page(title, md_url, body))
+        if not quiet and completed_count % 50 == 0:
+            print(
+                f"  per-page fallback: {completed_count}/{total} fetched ({len(failed)} failed)",
+                file=sys.stderr,
+            )
+
+    if workers > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        # executor.map preserves input order, so chunks stay in llms.txt order.
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            for i, result in enumerate(
+                ex.map(lambda p: _fetch_one_md_page(session, p, timeout), pairs),
+                1,
+            ):
+                consume(result, i)
+    else:
+        for i, pair in enumerate(pairs, 1):
+            consume(_fetch_one_md_page(session, pair, timeout), i)
+
+    if total and (len(failed) / total) > max_fail_ratio:
+        raise NotFoundError(
+            f"per-page fallback aborted: {len(failed)}/{total} pages failed"
+        )
+
+    text = "\n\n".join(chunks) + "\n" if chunks else ""
+    return text, len(chunks), total, failed
 
 
 def fetch_one(session, key: str, url: str, fname: str, timeout: int, meta_entry: dict):
@@ -277,6 +416,67 @@ def fetch_with_fallback(
     raise last_not_found
 
 
+def try_rebuild_llms_full(
+    session,
+    cache_dir: Path,
+    fname: str,
+    llms_txt_text: str | None,
+    quiet: bool,
+):
+    """
+    Per-page fallback for when upstream `llms-full.txt` is 404.
+
+    Walks every `.md` URL in `llms_txt_text`, fetches each, and writes a
+    reconstructed `llms-full.txt` to `cache_dir/fname`.
+
+    Returns the metadata entry on success, or None when reconstruction wasn't
+    possible (no llms_txt content, too many per-page 404s, or transport error).
+    """
+    if llms_txt_text is None:
+        if not quiet:
+            print(
+                "  per-page rebuild skipped: no llms.txt content available",
+                file=sys.stderr,
+            )
+        return None
+    try:
+        text, fetched, total, failed = rebuild_llms_full_from_pages(
+            session, llms_txt_text, timeout=60, quiet=quiet
+        )
+    except NotFoundError as e:
+        if not quiet:
+            print(
+                f"  per-page rebuild failed ({e}); keeping cached {fname}",
+                file=sys.stderr,
+            )
+        return None
+    except NetworkError as e:
+        if not quiet:
+            print(
+                f"  per-page rebuild aborted on network error: {e}",
+                file=sys.stderr,
+            )
+        return None
+
+    (cache_dir / fname).write_text(text, encoding="utf-8")
+    if not quiet:
+        skipped_note = f"; {len(failed)} skipped" if failed else ""
+        print(
+            f"  Wrote {fname} ({len(text):,} chars) reconstructed from "
+            f"{fetched}/{total} per-page .md files{skipped_note}"
+        )
+    return {
+        "sha256": sha256_text(text),
+        "size": len(text),
+        "etag": None,
+        "last_modified": None,
+        "url_used": "per-page-fallback",
+        "rebuilt_pages": fetched,
+        "total_pages": total,
+        "skipped_pages": len(failed),
+    }
+
+
 def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = False) -> int:
     """
     Verify cache freshness and refresh if needed.
@@ -306,6 +506,7 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
     any_change = False
     new_meta = {"fetched_at": now_iso(), "source_base": DOCS_BASE}
     degraded: list[str] = []
+    llms_txt_text: str | None = None
 
     for key, urls, fname, timeout, required in FILES:
         entry = meta.get(key, {}) if has_files else {}
@@ -319,6 +520,19 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
             print("auth-error")
             return 2
         except NotFoundError as e:
+            # Per-page rebuild only applies to llms-full.txt and only when we
+            # are allowed to write. In read-only (`check`) we just mark it
+            # degraded so the freshness verdict isn't blocked by a 404 we
+            # can't repair without writing.
+            if key == "llms_full" and not read_only:
+                rebuilt = try_rebuild_llms_full(
+                    session, cache_dir, fname, llms_txt_text, quiet
+                )
+                if rebuilt is not None:
+                    new_meta[key] = rebuilt
+                    any_change = True
+                    continue
+
             if required:
                 if not quiet:
                     print(f"  Required file {fname} not found at any candidate URL: {e}", file=sys.stderr)
@@ -349,6 +563,16 @@ def cmd_auto(cache_dir: Path, access_code: str, quiet: bool, read_only: bool = F
                 (cache_dir / fname).write_text(text, encoding="utf-8")
                 if not quiet:
                     print(f"  Wrote {fname} ({len(text):,} chars) from {url_used}")
+
+        # Cache the resolved llms.txt content so the per-page fallback can
+        # use it if llms-full.txt 404s in the next iteration.
+        if key == "llms_txt":
+            p = cache_dir / fname
+            if p.exists():
+                try:
+                    llms_txt_text = p.read_text(encoding="utf-8")
+                except OSError:
+                    llms_txt_text = None
 
     if read_only:
         if any_change or not has_files:
@@ -386,6 +610,7 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
     prior_meta = load_metadata(cache_dir)
     new_meta = {"fetched_at": now_iso(), "source_base": DOCS_BASE}
     degraded: list[str] = []
+    llms_txt_text: str | None = None
     for key, urls, fname, timeout, required in FILES:
         try:
             result, url_used = fetch_with_fallback(
@@ -397,6 +622,14 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
             print("auth-error")
             return 2
         except NotFoundError as e:
+            if key == "llms_full":
+                rebuilt = try_rebuild_llms_full(
+                    session, cache_dir, fname, llms_txt_text, quiet
+                )
+                if rebuilt is not None:
+                    new_meta[key] = rebuilt
+                    continue
+
             if required:
                 if not quiet:
                     print(f"  Required file {fname} not found at any candidate URL: {e}", file=sys.stderr)
@@ -411,6 +644,13 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
             if prior_entry:
                 new_meta[key] = prior_entry
             degraded.append(key)
+            if key == "llms_txt":
+                p = cache_dir / fname
+                if p.exists():
+                    try:
+                        llms_txt_text = p.read_text(encoding="utf-8")
+                    except OSError:
+                        llms_txt_text = None
             continue
         except NetworkError as e:
             if not quiet:
@@ -424,6 +664,8 @@ def cmd_refresh(cache_dir: Path, access_code: str, quiet: bool) -> int:
         new_meta[key] = {**entry_meta, "url_used": url_used}
         if not quiet:
             print(f"  Wrote {fname} ({len(text):,} chars) from {url_used}")
+        if key == "llms_txt":
+            llms_txt_text = text
 
     if degraded:
         new_meta["degraded_endpoints"] = degraded

@@ -15,7 +15,11 @@ The skill caches two files in `<cache-dir>/`:
 - **`llms-full.txt`** — Complete documentation content (~29,000 lines). Each page starts with `# Title` followed by `Source: <url>`.
 - **`.metadata.json`** — Bookkeeping: `fetched_at`, sha256 hashes, ETag, `Last-Modified`, and `url_used` (which candidate path actually served the content) for each file. Also records `degraded_endpoints` listing any file whose candidate URLs all returned 404. Used by the refresh script for cheap conditional-GET freshness checks.
 
-The refresher tries each file at `https://docs.rain.xyz/.well-known/<file>` first and falls back to `https://docs.rain.xyz/<file>` (the docs root) when the well-known path 404s, so the skill survives Rain rearranging these endpoints. If both candidates return 404 for one of the files, the cached copy is kept and the file's key is added to `degraded_endpoints`; to locate pages by title in that case, grep `^# ` in `llms-full.txt` instead of reading the (possibly stale) `llms.txt`.
+The refresher tries each file at `https://docs.rain.xyz/.well-known/<file>` first and falls back to `https://docs.rain.xyz/<file>` (the docs root) when the well-known path 404s, so the skill survives Rain rearranging these endpoints.
+
+If both candidates return 404 for `llms-full.txt` specifically, the refresher does a **per-page rebuild**: it parses every `.md` URL out of `llms.txt`, fetches each one in parallel (8 workers), and concatenates the responses into a fresh `llms-full.txt`. The metadata records `"url_used": "per-page-fallback"` along with how many pages were rebuilt/skipped. This recovers automatically when Mintlify drops the bundled `llms-full.txt` endpoint.
+
+If `llms.txt` itself is 404 at both candidates, the cached copy is kept and the file's key is added to `degraded_endpoints`. To locate pages by title in that case, grep `^# ` in `llms-full.txt` instead of reading the (possibly stale) `llms.txt`.
 
 The docs cover: API changelog, webhook schemas, smart contracts changelog, guides (authorization, card management, KYC/KYB, disputes, collateral, ledgering, onramps/offramps, 3DS, shipping, reporting), and the full REST API reference.
 

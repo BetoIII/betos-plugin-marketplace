@@ -69,13 +69,13 @@ Real estate assistant for buyer's agents — disclosure package summaries, MLS c
 
 ---
 
-### [rain-platform](plugins/rain-platform)
+### [rain-platform-team](plugins/rain-platform-team)
 
-Support operations toolkit for the Rain team — Pylon issue triage, virtual card art compliance checking, and partner onboarding video review.
+Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, and Rain API documentation search.
 
 **Install:**
 ```
-/plugin install rain-platform@BetoIII/betos-plugin-marketplace
+/plugin install rain-platform-team@BetoIII/betos-plugin-marketplace
 ```
 
 **Skills:**

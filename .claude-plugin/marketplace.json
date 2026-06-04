@@ -41,13 +41,13 @@
       "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
     },
     {
-      "name": "rain-platform",
-      "description": "Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, partner onboarding video review, and Rain API documentation search",
+      "name": "rain-platform-team",
+      "description": "Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, and Rain API documentation search",
       "author": {
         "name": "Beto Juárez III",
         "email": "betojuareziii@gmail.com"
       },
-      "source": "./plugins/rain-platform",
+      "source": "./plugins/rain-platform-team",
       "category": "productivity",
       "homepage": "https://github.com/BetoIII/betos-plugin-marketplace"
     }

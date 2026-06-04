@@ -1,6 +1,6 @@
-# Rain Platform
+# Rain Platform Team
 
-Support operations toolkit for the Rain team — Pylon issue triage, card art compliance checking, and partner onboarding video review.
+Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, and Rain API documentation search.
 
 ## Skills
 
@@ -43,7 +43,7 @@ Reviews a partner's sandbox onboarding screen recording against Rain's complianc
 ## Installation
 
 ```
-/plugin install rain-platform@BetoIII/betos-plugin-marketplace
+/plugin install rain-platform-team@BetoIII/betos-plugin-marketplace
 ```
 
 ## Author

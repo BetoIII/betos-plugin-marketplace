@@ -1,6 +1,6 @@
 # Rain Platform Team
 
-Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, Rain API documentation search, and collateral contract admin wallet lookup.
+Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, Rain API documentation search, collateral contract admin wallet lookup, and Rocketlane project management via natural language.
 
 ## Skills
 
@@ -55,6 +55,24 @@ Looks up the collateral contract admin wallet address(es) for a Rain user by que
 - "collateral admin for [UUID]"
 - "what's the wallet attached to user [ID]"
 - "find the wallet for this user ID"
+
+---
+
+### `rocketlane-api`
+
+Full read/write access to the Rocketlane API from natural language — project lookups, task management, time tracking, attachments, custom fields, and more. Prompts once for your Rocketlane API key and stores it locally at `~/.config/rain-claude/rocketlane.env` (never in the repo).
+
+**What it does:**
+1. **First-run setup** — asks for your Rocketlane API key once, validates it live, persists it outside the repo with `chmod 600`
+2. **Maps natural language to endpoints** — projects, tasks, phases, fields, users, time entries, spaces, attachments, invoices
+3. **Handles the API's quirks** — auto-pagination, `field.operator=value` filters, the `/api/v1` attachments split, custom-field ID resolution
+4. **Write safety** — shows the exact payload and asks for confirmation before any create/update/delete
+
+**Trigger phrases:**
+- "find [company] in Rocketlane" / "what's the status of [client]"
+- "who's on the team for" / "what stage is [client] at"
+- "create a task" / "log time" / "update the stage"
+- "download the attachment from [task]"
 
 ---
 

@@ -140,6 +140,30 @@ Before ANY `POST`, `PUT`, or `DELETE`:
 - Writing custom fields needs `fieldId` + typed `fieldValue` — resolve via `GET /fields`.
   Full mapping guide: `references/fields.md`.
 
+## Known limitations
+
+- **Form responses cannot be enumerated via the API** (verified live, July 2026). Files that a
+  form uploaded ARE downloadable — they are ordinary attachments — but there is no API route
+  that lists a response's attachment IDs:
+  - `GET /projects/{projectId}/forms` exists and returns a correct `totalRecordCount`, but every
+    object in `data[]` comes back **empty** (`{}`) regardless of `includeAllFields` /
+    `includeFields` — the tenant's forms are counted but not described.
+  - `/form-responses/{id}`, `/projects/{id}/forms/{formId}`, `/projects/{id}/forms/responses/{id}`
+    → 404 on both `/api/1.0` and `/api/v1`. `/forms/{id}` is a real route but only accepts a
+    form ID, which nothing exposes.
+  - Web-UI URLs (`https://<tenant>.rocketlane.com/projects/{id}/forms/responses/{responseId}`)
+    are session-authenticated pages, not API endpoints.
+
+  **Practical routes to a form response's files, in order:**
+  1. If the upload attached to a task, use `--v1 GET /tasks/{taskId}` → `attachments[]`, then
+     `--v1 GET /attachments/{id}/download`. (Many Rocketlane forms do NOT attach to a task.)
+  2. Get the attachment ID from outside the API — the response page in a browser (file links
+     carry `data-attachment-id` or `/attachments/<id>/`), or a webhook consumer's logs — then
+     download it with route 1's download call. Rocketlane's "form completed" webhook payload
+     itself omits file-upload answers.
+  3. Never brute-force or scan attachment IDs to find a submission; IDs are tenant-global and
+     you would be pulling unrelated customers' files.
+
 ## Presenting results
 
 - Lead with the direct answer (status, owner, date), then supporting detail.

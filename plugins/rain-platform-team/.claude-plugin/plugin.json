@@ -1,7 +1,7 @@
 {
   "name": "rain-platform-team",
-  "version": "0.1.0",
-  "description": "Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, Rain API documentation search, collateral contract admin wallet lookup, and Rocketlane project management via the Rocketlane API",
+  "version": "0.2.0",
+  "description": "Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, Rain API documentation search, collateral contract admin wallet lookup, customer Slack channel identification, and Rocketlane project management via the Rocketlane API",
   "author": {
     "name": "Beto Juárez III",
     "email": "betojuareziii@gmail.com"

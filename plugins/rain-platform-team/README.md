@@ -1,6 +1,6 @@
 # Rain Platform Team
 
-Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, Rain API documentation search, collateral contract admin wallet lookup, and Rocketlane project management via natural language.
+Support operations toolkit for the Rain team — virtual card art compliance checking, partner onboarding video review, Rain API documentation search, collateral contract admin wallet lookup, customer Slack channel identification, and Rocketlane project management via natural language.
 
 ## Skills
 
@@ -73,6 +73,26 @@ Full read/write access to the Rocketlane API from natural language — project l
 - "who's on the team for" / "what stage is [client] at"
 - "create a task" / "log time" / "update the stage"
 - "download the attachment from [task]"
+
+---
+
+### `slack-channel-identifier`
+
+Identifies which customer Slack channel belongs to a Rocketlane project, by correlating the project's creation time with channels the Rocketlane Slack bot auto-created, then cross-checking against current channel names. Returns a confidence level safe to gate an automated post on. Read-only — it identifies, never posts.
+
+**What it does:**
+1. **Anchors on the project** — pulls name and `createdAt` from Rocketlane, or takes them directly via `--name` / `--created-at`
+2. **Correlates creation times** — finds bot-created channels in a window after the project; the bot provisions seconds-to-hours later and timestamps can't be edited, so this proves provenance
+3. **Cross-checks current names** — catches renames, which drift across customers and would otherwise route a report to the wrong client
+4. **Reports a confidence level** — `high` only when both signals agree and the channel is live; lists every candidate considered with its time delta
+
+**Trigger phrases:**
+- "which channel is [customer]" / "what's the Slack channel for this project"
+- "find the customer channel" / "where do I post this for [client]"
+- "is #ext-foo-rain the right channel for [customer]"
+- "verify the channel before I send this"
+
+**Setup:** stores a Slack bot token once at `~/.config/rain-claude/slack.env` (`chmod 600`, never in a repo). Reuses the `rocketlane-api` skill's stored key for project lookups.
 
 ---
 

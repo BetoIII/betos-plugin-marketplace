@@ -5,9 +5,12 @@ description: >
   Use this skill whenever a user uploads or shares a video file and asks to review, check, validate,
   audit, or give feedback on their onboarding demo, sandbox recording, KYC flow, or consent screens.
   Also trigger when a user says things like "does this pass?", "is our flow correct?", "can you review
-  our demo video?", "check our onboarding recording before we go live", or submits a video as part of
-  their onboarding submission. The skill extracts frames from the video, analyzes each screen in the
-  flow, and produces a structured pass/fail compliance report with specific, actionable feedback.
+  our demo video?", "check our onboarding recording before we go live", "did they click through the
+  terms links?", or submits a video as part of their onboarding submission — including consent-only
+  re-record videos that show just the agreements screen and its link click-throughs. The skill extracts
+  frames from the video, analyzes each screen in the flow (including verifying that each hyperlinked
+  agreement is opened, scrolled, and hosted on the correct Rain vs partner domain), and produces a
+  structured pass/fail compliance report with specific, actionable feedback.
 ---
 
 # Partner Onboarding Video Review
@@ -22,6 +25,8 @@ If the user hasn't already told you, ask which flow type the video covers:
 - **International Consumer**
 
 If the video obviously shows one type (e.g., non-US passport + international card terms = International Consumer; company/UBO registration form = Business), you can infer it and state your assumption clearly.
+
+**Consent-only re-records:** Partners sometimes submit videos covering only the consent screen and its link click-throughs (e.g., legal asked for a re-record of just the consents, or the partner can't create a fresh production account because they already have one). If the video starts at or near the card-setup/consent screen and never shows KYC, scope the review to the Consent Flow and Consent Link Click-Through sections only — do not fail it for missing KYC or card creation. State the scope explicitly in the report.
 
 ## Step 2: Extract frames — use a TWO-PASS approach for longer videos
 
@@ -50,6 +55,8 @@ echo "Pass 2 frames: $(ls /tmp/video-review-frames/pass2/ | wc -l)"
 
 For short videos (<2 minutes), a single pass at `fps=1/5` is fine — skip Pass 2.
 
+**Consent-only videos (typically 2–4 minutes): extract the WHOLE video at `fps=1` in a single pass** instead of the two-pass approach. Link click-throughs — tapping a link, a browser opening, scrolling a document, returning to the app — unfold continuously over the full video, so you need dense coverage end to end, not just the final third. Timestamp mapping: frame N → second N.
+
 **Timestamp mapping:** Record the extraction parameters so you can convert any frame number to an approximate video timestamp later:
 - Pass 1: frame N → timestamp ≈ `N × 10` seconds (since fps=1/10)
 - Pass 2: frame N → timestamp ≈ `PASS2_START + (N × 3)` seconds (since fps=1/3, starting at the 2/3 mark)
@@ -69,6 +76,7 @@ As you read, build a mental map of:
 - The order of checkboxes and whether any were pre-checked vs. requiring user action
 - Whether a card was explicitly shown/issued at the end (a card face/number, not just a dashboard)
 - Whether the video spans multiple apps or platforms (common for Business flows)
+- **Every link click-through**: which hyperlink was tapped, the domain visible in the browser's URL pill/address bar (e.g., `legal.raincards.xyz` vs the partner's domain), whether the user scrolled through the document (and whether they reached its end), and whether they returned to the consent screen **before** checking the corresponding box
 - **The frame number of every screen that may relate to a compliance issue** — you'll convert these to timestamps for the report. For any screen that is a potential fail or partial, note the pass and frame number immediately (e.g., "Pass 1 frame 036 → consent screen with pre-checked box").
 
 **For Business flows**: The video may show TWO separate platforms — (1) a consumer/user-facing app where individual representatives go through KYC, and (2) a business admin platform where company/UBO information is submitted. Evaluate BOTH portions. The individual KYC approval AND the company KYB approval must both be shown.
@@ -142,6 +150,11 @@ Use the format below. Be specific — quote exact text seen in the video, refere
 |---|---|---|---|
 | [requirement] | ✅ Pass / ❌ Fail / ⚠️ Partial | [~M:SS if Fail/Partial, — if Pass] | [specific observation, quote exact checkbox text] |
 
+### Consent Link Click-Throughs
+| Link | Opened on camera? | URL seen (address bar) | Scrolled through? | Returned before checking box? | Status |
+|---|---|---|---|---|---|
+| [link name, incl. nested Prohibited Activities link inside Card Terms] | ✅/❌ | [domain, e.g. legal.raincards.xyz] | ✅ full / ⚠️ partial / ❌ no | ✅/❌/n/a | ✅/❌/⚠️ |
+
 ### Card Creation
 | Requirement | Status | Timestamp | Notes |
 |---|---|---|---|
@@ -189,8 +202,36 @@ Common false-positive to avoid: in a **US Consumer** flow, the second checkbox i
 
 The Card Terms + Issuer Privacy Policy can appear as a single combined checkbox (recommended) **or** as two separate checkboxes — Rain's spec explicitly allows both. Do not fail a flow just because they are split into two boxes.
 
+### Consent link click-throughs — every hyperlinked agreement must be opened, scrolled, and returned from
+As of August 2026, Rain Legal requires the video to demonstrate the partner actually opening each hyperlinked agreement on the consent screen — checking the boxes alone is no longer sufficient. For each linked document the video must show:
+
+1. The user **taps the hyperlink** in the checkbox text.
+2. The document **opens in a browser with the URL visible** (Safari URL pill / address bar). Record the domain you see — on phones the pill usually shows only the domain (e.g., `legal.raincards.xyz`), which is sufficient for verification.
+3. The user **scrolls through the document** — the canonical examples scroll every document end-to-end before returning.
+4. The user **returns to the consent screen and only then checks the corresponding box**.
+
+Also required: inside the partner-hosted Card Terms document, the video must show the **nested "Prohibited Activities" link** being tapped and resolving to Rain's hosted prohibitions list on `legal.raincards.xyz`. The Card Terms also embed a nested "E-Sign & Electronic Communications Notice" link that must point to the Rain-hosted notice — the canonical videos show this one clicked too.
+
+A consent flow where boxes are checked without the links ever being opened on camera is a ❌ Fail on the click-through requirement — legal will bounce the submission even if the checkbox text and order are perfect. The Accuracy and Non-solicitation checkboxes have no links, so no click-through applies to them.
+
+### Link destinations — Rain-hosted vs partner-hosted
+Verify each link resolves to the right host (via the visible address bar). Per-program specifics live in the reference files; the shared standard:
+
+| Link on consent screen | Host | Expected destination |
+|---|---|---|
+| E-Sign Disclosure/Consent | **Rain** | `legal.raincards.xyz/legal/electronic-communications-notice` — title "E-Sign & Electronic Communications Notice" |
+| Account Opening Privacy Notice (US Consumer only) | **Partner** | Partner's own domain (e.g., `dionapp.com/glba`) — GLBA "FACTS" table naming Third National as Issuer |
+| [Partner] Card Terms | **Partner** | Partner's own domain (e.g., `dionapp.com/card-terms-us`, `dionapp.com/card-terms-int`) |
+| Issuer Privacy Policy | **Rain** | `legal.raincards.xyz/legal/privacy-policy` — title "Rain Privacy Policy" |
+| Prohibited Activities (nested inside Card Terms) | **Rain** | `legal.raincards.xyz/legal/prohibitions` — title "Rain Prohibitions List" |
+| E-Sign notice (nested inside Card Terms) | **Rain** | `legal.raincards.xyz/legal/electronic-communications-notice` |
+
+**The standard changed in August 2026**: partners were previously asked to fork and rebrand Rain's E-Sign notice, prohibitions list, and privacy policy. Rain Legal has since standardized on partners linking **directly to the Rain-hosted documents** — no forked copies. If you see a partner-branded/partner-hosted version of the E-Sign notice, prohibitions list, or Issuer privacy policy, flag it: the partner should delete their copy and link to Rain's. A partner URL that merely redirects to the same Rain-hosted page (e.g., `third-national.com/privacypolicy` → Rain Privacy Policy) is not the preferred pattern — note it and ask the partner to link directly.
+
+**Canonical examples** (Dion, Aug 19 2026 — `US_conditions_agreement.MP4` and `Int_conditions_agreement.mov`): every linked doc opened in Safari with the domain visible, scrolled fully, then the box checked only after returning; the nested Prohibitions and E-Sign links inside the Card Terms clicked and shown resolving to `legal.raincards.xyz`; "Confirm & issue card" stays disabled until every box is checked. Use that pattern as the bar.
+
 ### E-Sign placement
-The E-Sign consent must be a completely standalone checkbox — not merged with any other item — and it must be the very first checkbox in the user/business agreements section.
+The E-Sign consent must be a completely standalone checkbox — not merged with any other item — and it must be the very first checkbox in the user/business agreements section. Checkbox wording may say "E-Sign Disclosure" or "E-Sign Consent" (the canonical flows use *"I consent to the E-Sign Disclosure."*) — what matters is that it is standalone, first, and links to the Rain-hosted notice.
 
 ### Checkbox text and partner name consistency
 Read every consent checkbox carefully. The text must use the partner's actual product brand name throughout. If the app is called "Lambi" but checkboxes say "Yunlen Spend Card", that's a fail — the right brand name must be used consistently across all four checkboxes.

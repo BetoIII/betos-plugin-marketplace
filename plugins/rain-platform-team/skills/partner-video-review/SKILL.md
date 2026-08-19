@@ -50,6 +50,14 @@ echo "Pass 2 frames: $(ls /tmp/video-review-frames/pass2/ | wc -l)"
 
 For short videos (<2 minutes), a single pass at `fps=1/5` is fine — skip Pass 2.
 
+**Timestamp mapping:** Record the extraction parameters so you can convert any frame number to an approximate video timestamp later:
+- Pass 1: frame N → timestamp ≈ `N × 10` seconds (since fps=1/10)
+- Pass 2: frame N → timestamp ≈ `PASS2_START + (N × 3)` seconds (since fps=1/3, starting at the 2/3 mark)
+- Pass 3: frame N → timestamp ≈ `WINDOW_START + (N / 3)` seconds (since fps=3; see Step 3b)
+- Short video single pass: frame N → timestamp ≈ `N × 5` seconds (since fps=1/5)
+
+Format timestamps as `M:SS` (e.g., `2:30`, `5:10`). You will use these in the report for any failed or partial checks.
+
 ## Step 3: Read ALL frames from BOTH passes
 
 Read every frame from Pass 1 first (to understand the overall structure), then every frame from Pass 2 (to carefully evaluate the consent screen and card creation). Do not skip frames in Pass 2 — this is where the critical compliance details live.
@@ -61,8 +69,35 @@ As you read, build a mental map of:
 - The order of checkboxes and whether any were pre-checked vs. requiring user action
 - Whether a card was explicitly shown/issued at the end (a card face/number, not just a dashboard)
 - Whether the video spans multiple apps or platforms (common for Business flows)
+- **The frame number of every screen that may relate to a compliance issue** — you'll convert these to timestamps for the report. For any screen that is a potential fail or partial, note the pass and frame number immediately (e.g., "Pass 1 frame 036 → consent screen with pre-checked box").
 
 **For Business flows**: The video may show TWO separate platforms — (1) a consumer/user-facing app where individual representatives go through KYC, and (2) a business admin platform where company/UBO information is submitted. Evaluate BOTH portions. The individual KYC approval AND the company KYB approval must both be shown.
+
+## Step 3b: Pass 3 — Consent screen micro-extraction (REQUIRED before judging pre-checked state)
+
+After reviewing Pass 1 and Pass 2 frames, you should have identified approximately when the consent/T&C screen appears. **Before making any determination about whether checkboxes are pre-checked**, you MUST do a high-density extraction of the consent screen region.
+
+**Why this is necessary:** Users often check boxes within 1–2 seconds of the screen loading. At Pass 2's rate of 1 frame/3 seconds, the first captured frame of the consent screen may already show a box checked by the user — making it look pre-checked when it wasn't. This has caused false positives in past reviews.
+
+1. Estimate the consent screen timestamp from Pass 2 (e.g., if the consent screen appeared around Pass 2 frame 33 and Pass 2 started at 251s, that's roughly 251 + 33×3 ≈ 350s).
+2. Extract a 30-second window centered on that timestamp at **3 frames per second**:
+
+```bash
+CONSENT_TS=<estimated timestamp in seconds>
+WINDOW_START=$(python3 -c "print(max(0, $CONSENT_TS - 15))")
+mkdir -p /tmp/video-review-frames/pass3
+ffmpeg -i "<VIDEO_PATH>" -ss $WINDOW_START -t 30 -vf "fps=3,scale=600:-1" /tmp/video-review-frames/pass3/frame_%03d.jpg -y
+echo "Pass 3 frames: $(ls /tmp/video-review-frames/pass3/ | wc -l)"
+```
+
+3. Read ALL Pass 3 frames. Look specifically for:
+   - The **very first frame** where the consent screen/checkboxes become visible — this is the ground truth for whether boxes are pre-checked
+   - The transition from the previous screen (e.g., address confirmation) to the consent screen
+   - Each individual checkbox being checked by the user (you should see the progression: 0 checked → 1 checked → 2 checked → etc.)
+
+**The pre-checked determination MUST be based on Pass 3 frames, not Pass 1 or Pass 2.** If Pass 3 shows the checkboxes unchecked on the first frame where the consent screen is visible, they are NOT pre-checked — even if Pass 1/Pass 2 only captured frames where they were already checked.
+
+Pass 3 timestamp mapping: frame N → timestamp ≈ `WINDOW_START + (N / 3)` seconds (since fps=3). Format as `M:SS`.
 
 ## Step 4: Load the requirements
 
@@ -98,24 +133,26 @@ Use the format below. Be specific — quote exact text seen in the video, refere
 ## Checklist
 
 ### KYC/KYB Flow
-| Requirement | Status | Notes |
-|---|---|---|
-| [requirement] | ✅ Pass / ❌ Fail / ⚠️ Partial | [specific observation, frame reference] |
+| Requirement | Status | Timestamp | Notes |
+|---|---|---|---|
+| [requirement] | ✅ Pass / ❌ Fail / ⚠️ Partial | [~M:SS if Fail/Partial, — if Pass] | [specific observation, frame reference] |
 
 ### Consent Flow
-| Requirement | Status | Notes |
-|---|---|---|
-| [requirement] | ✅ Pass / ❌ Fail / ⚠️ Partial | [specific observation, quote exact checkbox text] |
+| Requirement | Status | Timestamp | Notes |
+|---|---|---|---|
+| [requirement] | ✅ Pass / ❌ Fail / ⚠️ Partial | [~M:SS if Fail/Partial, — if Pass] | [specific observation, quote exact checkbox text] |
 
 ### Card Creation
-| Requirement | Status | Notes |
-|---|---|---|
-| [requirement] | ✅ Pass / ❌ Fail / ⚠️ Partial | [specific observation] |
+| Requirement | Status | Timestamp | Notes |
+|---|---|---|---|
+| [requirement] | ✅ Pass / ❌ Fail / ⚠️ Partial | [~M:SS if Fail/Partial, — if Pass] | [specific observation] |
+
+**Timestamp key:** Timestamps are approximate (±5s) based on frame extraction rate. Scrub to the indicated time to see the relevant screen.
 
 ---
 
 ## Issues to Fix
-[Numbered list of every failure. For each: what was observed → what is required → what to change.]
+[Numbered list of every failure. For each: include the approximate timestamp (e.g., "~5:10"), what was observed → what is required → what to change.]
 
 ---
 
@@ -137,6 +174,8 @@ Consent screens appear late in the flow, after KYC completes. If Pass 1 doesn't 
 
 ### Consent checkbox affirmative action
 All checkboxes must require the user to actively click them — **pre-checked checkboxes are a hard fail**. If a checkbox already has a checkmark when the screen first loads, that's non-compliant regardless of the text. Similarly, if a required checkbox is visibly unchecked when the user taps "Continue" or "Done", that's a fail.
+
+**IMPORTANT — use Pass 3 to determine pre-checked state.** Do NOT rely on Pass 1 or Pass 2 frames to judge whether a checkbox was pre-checked. Users often check boxes within 1–2 seconds of the consent screen loading, which can fall between Pass 2 frames and create false positives. The Pass 3 micro-extraction (Step 3b) at 3fps provides the ground truth. Look at the very first Pass 3 frame where the consent screen is visible — that frame's checkbox state is definitive.
 
 ### Consent checkbox list depends on program type — do not assume one structure fits all
 The exact set and order of consent checkboxes differs across the three programs. Look these up in the reference file every time — never apply a memorized template across program types.

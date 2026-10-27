@@ -67,10 +67,10 @@ chmod 600 ~/.config/rain-claude/slack.env
 
 **Never** print the token, put it on a command line, or write it into a repo.
 
-`--project` additionally needs `ROCKETLANE_API_KEY`; the script reads the same
-`~/.config/rain-claude/rocketlane.env` the **rocketlane-api** skill writes, so
-if that skill is set up there is nothing more to do. Without it, anchor
-manually with `--name` / `--created-at`.
+`--project` additionally needs `ROCKETLANE_API_KEY`, read from
+`~/.config/rain-claude/rocketlane.env` if that file exists. Without it, anchor
+manually with `--name` / `--created-at` (for example, after looking the project
+up with the Rocketlane connector).
 
 ## Step 1 — Gather the evidence (one command)
 

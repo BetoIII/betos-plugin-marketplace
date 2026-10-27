@@ -19,9 +19,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 // ── Credentials ─────────────────────────────────────────────────────
-// Never takes a token on the command line. Reads the same config location the
-// rocketlane-api skill writes, so ROCKETLANE_API_KEY is shared rather than
-// duplicated. First file to define a key wins; the real environment beats all.
+// Never takes a token on the command line. Reads ROCKETLANE_API_KEY from the
+// shared ~/.config/rain-claude location if present. First file to define a key wins; the real environment beats all.
 
 const CONFIG_DIR = path.join(os.homedir(), '.config/rain-claude');
 const ENV_CANDIDATES = [
@@ -276,8 +275,8 @@ async function main() {
   if (args.project) {
     if (!env.ROCKETLANE_API_KEY) {
       console.error(
-        'ROCKETLANE_API_KEY not found — needed to resolve --project. Set it up via the\n' +
-        'rocketlane-api skill, or anchor manually with --name and --created-at.'
+        'ROCKETLANE_API_KEY not found — needed to resolve --project. Add it to\n' +
+        '~/.config/rain-claude/rocketlane.env, or anchor manually with --name and --created-at.'
       );
       process.exit(2);
     }
